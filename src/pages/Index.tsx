@@ -26,7 +26,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background">
       <DashboardHeader onUpload={() => setShowUploadModal(true)} />
       
       <main className="container mx-auto px-4 py-8 space-y-8">
