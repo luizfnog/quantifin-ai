@@ -21,6 +21,7 @@ export type Database = {
           icon: string | null
           id: string
           name: string
+          parent_id: string | null
           user_id: string
         }
         Insert: {
@@ -29,6 +30,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name: string
+          parent_id?: string | null
           user_id: string
         }
         Update: {
@@ -37,9 +39,18 @@ export type Database = {
           icon?: string | null
           id?: string
           name?: string
+          parent_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -72,6 +83,7 @@ export type Database = {
           description: string
           id: string
           is_recurring: boolean | null
+          subcategory_id: string | null
           type: string
           updated_at: string | null
           user_id: string
@@ -85,6 +97,7 @@ export type Database = {
           description: string
           id?: string
           is_recurring?: boolean | null
+          subcategory_id?: string | null
           type: string
           updated_at?: string | null
           user_id: string
@@ -98,6 +111,7 @@ export type Database = {
           description?: string
           id?: string
           is_recurring?: boolean | null
+          subcategory_id?: string | null
           type?: string
           updated_at?: string | null
           user_id?: string
@@ -106,6 +120,13 @@ export type Database = {
           {
             foreignKeyName: "transactions_category_id_fkey"
             columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_subcategory_id_fkey"
+            columns: ["subcategory_id"]
             isOneToOne: false
             referencedRelation: "categories"
             referencedColumns: ["id"]

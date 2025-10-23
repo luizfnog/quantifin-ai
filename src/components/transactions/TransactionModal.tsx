@@ -24,6 +24,7 @@ interface Category {
   id: string;
   name: string;
   icon: string | null;
+  parent_id: string | null;
 }
 
 interface Transaction {
@@ -33,6 +34,7 @@ interface Transaction {
   date: string;
   type: "income" | "expense";
   category_id: string | null;
+  subcategory_id: string | null;
 }
 
 interface TransactionModalProps {
@@ -47,18 +49,21 @@ const transactionSchema = z.object({
   date: z.string().min(1, "Data é obrigatória"),
   type: z.enum(["income", "expense"]),
   category_id: z.string().nullable(),
+  subcategory_id: z.string().nullable(),
 });
 
 const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
     date: new Date().toISOString().split("T")[0],
     type: "expense" as "income" | "expense",
     category_id: "",
+    subcategory_id: "",
   });
 
   useEffect(() => {
@@ -71,6 +76,7 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
           date: transaction.date,
           type: transaction.type,
           category_id: transaction.category_id || "",
+          subcategory_id: transaction.subcategory_id || "",
         });
       } else {
         setFormData({
@@ -79,13 +85,46 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
           date: new Date().toISOString().split("T")[0],
           type: "expense",
           category_id: "",
+          subcategory_id: "",
         });
       }
     }
   }, [open, transaction]);
 
+  useEffect(() => {
+    const fetchSubcategories = async () => {
+      if (!formData.category_id) {
+        setSubcategories([]);
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('parent_id', formData.category_id);
+
+      if (data) {
+        setSubcategories(data);
+      }
+    };
+
+    fetchSubcategories();
+  }, [formData.category_id]);
+
   const fetchCategories = async () => {
-    const { data } = await supabase.from("categories").select("id, name, icon").order("name");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("categories")
+      .select("id, name, icon, parent_id")
+      .eq('user_id', user.id)
+      .is('parent_id', null)
+      .order("name");
     setCategories(data || []);
   };
 
@@ -100,6 +139,7 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
         date: formData.date,
         type: formData.type,
         category_id: formData.category_id || null,
+        subcategory_id: formData.subcategory_id || null,
       });
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -119,6 +159,7 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
           date: validatedData.date,
           type: validatedData.type,
           category_id: validatedData.category_id,
+          subcategory_id: validatedData.subcategory_id,
           user_id: user.id,
         }]);
         if (error) throw error;
@@ -211,9 +252,9 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
             <Label htmlFor="category">Categoria</Label>
             <Select
               value={formData.category_id}
-              onValueChange={(value) =>
-                setFormData({ ...formData, category_id: value })
-              }
+              onValueChange={(value) => {
+                setFormData({ ...formData, category_id: value, subcategory_id: "" });
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma categoria" />
@@ -227,6 +268,29 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
               </SelectContent>
             </Select>
           </div>
+
+          {subcategories.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="subcategory">Subcategoria (opcional)</Label>
+              <Select
+                value={formData.subcategory_id}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, subcategory_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma subcategoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subcategories.map((subcat) => (
+                    <SelectItem key={subcat.id} value={subcat.id}>
+                      {subcat.icon} {subcat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="flex gap-2 justify-end">
             <Button type="button" variant="outline" onClick={onClose}>

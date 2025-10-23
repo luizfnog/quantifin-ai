@@ -23,7 +23,13 @@ interface Transaction {
   type: "income" | "expense";
   ai_confidence: number | null;
   category_id: string | null;
+  subcategory_id: string | null;
   categories?: {
+    name: string;
+    color: string;
+    icon: string | null;
+  } | null;
+  subcategories?: {
     name: string;
     color: string;
     icon: string | null;
@@ -41,11 +47,29 @@ const Transactions = () => {
     try {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, categories(name, color, icon)")
+        .select("*")
         .order("date", { ascending: false });
 
       if (error) throw error;
-      setTransactions((data || []) as Transaction[]);
+
+      // Buscar categorias separadamente
+      const categoryIds = [...new Set(data?.map(t => t.category_id).filter(Boolean))];
+      const subcategoryIds = [...new Set(data?.map(t => t.subcategory_id).filter(Boolean))];
+      
+      const { data: categoriesData } = await supabase
+        .from("categories")
+        .select("*")
+        .in('id', [...categoryIds, ...subcategoryIds]);
+
+      const categoryMap = new Map(categoriesData?.map(c => [c.id, c]));
+
+      const enrichedData = data?.map(t => ({
+        ...t,
+        categories: t.category_id ? categoryMap.get(t.category_id) : null,
+        subcategories: t.subcategory_id ? categoryMap.get(t.subcategory_id) : null,
+      }));
+
+      setTransactions((enrichedData || []) as Transaction[]);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar transações",

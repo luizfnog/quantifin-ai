@@ -10,6 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
@@ -18,6 +25,7 @@ interface Category {
   name: string;
   color: string;
   icon: string | null;
+  parent_id: string | null;
 }
 
 interface CategoryModalProps {
@@ -30,34 +38,55 @@ const categorySchema = z.object({
   name: z.string().trim().min(1, "Nome é obrigatório").max(50),
   color: z.string().regex(/^#[0-9A-F]{6}$/i, "Cor inválida"),
   icon: z.string().max(10).nullable(),
+  parent_id: z.string().nullable(),
 });
 
 const CategoryModal = ({ open, onClose, category }: CategoryModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [parentCategories, setParentCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     color: "#10b981",
     icon: "",
+    parent_id: null as string | null,
   });
 
   useEffect(() => {
     if (open) {
+      fetchParentCategories();
       if (category) {
         setFormData({
           name: category.name,
           color: category.color,
           icon: category.icon || "",
+          parent_id: category.parent_id,
         });
       } else {
         setFormData({
           name: "",
           color: "#10b981",
           icon: "",
+          parent_id: null,
         });
       }
     }
   }, [open, category]);
+
+  const fetchParentCategories = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('parent_id', null);
+
+    if (data) {
+      setParentCategories(data);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +97,7 @@ const CategoryModal = ({ open, onClose, category }: CategoryModalProps) => {
         name: formData.name,
         color: formData.color,
         icon: formData.icon || null,
+        parent_id: formData.parent_id,
       });
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -85,6 +115,7 @@ const CategoryModal = ({ open, onClose, category }: CategoryModalProps) => {
           name: validatedData.name,
           color: validatedData.color,
           icon: validatedData.icon,
+          parent_id: validatedData.parent_id,
           user_id: user.id,
         }]);
         if (error) throw error;
@@ -115,6 +146,26 @@ const CategoryModal = ({ open, onClose, category }: CategoryModalProps) => {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="parent">Tipo</Label>
+            <Select 
+              value={formData.parent_id || "parent"} 
+              onValueChange={(value) => setFormData({ ...formData, parent_id: value === "parent" ? null : value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="parent">Categoria Principal</SelectItem>
+                {parentCategories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    Subcategoria de {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="name">Nome</Label>
             <Input

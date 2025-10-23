@@ -12,6 +12,7 @@ interface Category {
   name: string;
   color: string;
   icon: string | null;
+  parent_id: string | null;
 }
 
 const Categories = () => {

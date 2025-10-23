@@ -19,9 +19,34 @@ const Index = () => {
     projection30Days: 3890.50,
     fixedCostRate: 45,
     topExpenses: [
-      { category: "Moradia", amount: 1200, percentage: 35 },
-      { category: "Alimentação", amount: 800, percentage: 23 },
-      { category: "Transporte", amount: 450, percentage: 13 },
+      { 
+        category: "Habitação", 
+        amount: 1200, 
+        percentage: 35,
+        subcategories: [
+          { category: "Aluguel", amount: 800, percentage: 23 },
+          { category: "Conta de Luz", amount: 200, percentage: 6 },
+          { category: "Internet", amount: 200, percentage: 6 }
+        ]
+      },
+      { 
+        category: "Alimentação", 
+        amount: 800, 
+        percentage: 23,
+        subcategories: [
+          { category: "Supermercado", amount: 500, percentage: 14 },
+          { category: "Restaurante", amount: 300, percentage: 9 }
+        ]
+      },
+      { 
+        category: "Transporte", 
+        amount: 450, 
+        percentage: 13,
+        subcategories: [
+          { category: "Combustível", amount: 300, percentage: 9 },
+          { category: "Transporte Público", amount: 150, percentage: 4 }
+        ]
+      },
     ]
   };
 
