@@ -1,4 +1,4 @@
-import { LayoutDashboard, Receipt, Tag, LogOut } from "lucide-react";
+import { LayoutDashboard, Receipt, Tag, Target, LogOut } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,7 @@ const menuItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Transações", url: "/transactions", icon: Receipt },
   { title: "Categorias", url: "/categories", icon: Tag },
+  { title: "Orçamento & Metas", url: "/budget", icon: Target },
 ];
 
 export function AppSidebar() {

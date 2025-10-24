@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Transactions from "./pages/Transactions";
 import Categories from "./pages/Categories";
+import Budget from "./pages/Budget";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./components/layout/AppLayout";
 
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/" element={<AppLayout><Index /></AppLayout>} />
           <Route path="/transactions" element={<AppLayout><Transactions /></AppLayout>} />
           <Route path="/categories" element={<AppLayout><Categories /></AppLayout>} />
+          <Route path="/budget" element={<AppLayout><Budget /></AppLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

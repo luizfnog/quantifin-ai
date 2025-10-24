@@ -7,6 +7,7 @@ import KPICard from "@/components/dashboard/KPICard";
 import TransactionList from "@/components/dashboard/TransactionList";
 import CategoryChart from "@/components/dashboard/CategoryChart";
 import UploadModal from "@/components/dashboard/UploadModal";
+import BudgetStatusAlert from "@/components/dashboard/BudgetStatusAlert";
 
 const Index = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -93,6 +94,9 @@ const Index = () => {
             trendValue={kpiData.fixedCostRate < 50 ? "Saudável" : "Atenção"}
           />
         </div>
+
+        {/* Budget Status Alert */}
+        <BudgetStatusAlert />
 
         {/* Charts and Transactions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
