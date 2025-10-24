@@ -1,8 +1,15 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Pencil, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import BudgetModal from "./BudgetModal";
 
 interface Budget {
   id: string;
+  month: string;
   category_id: string;
   subcategory_id: string | null;
   planned_amount: number;
@@ -21,9 +28,13 @@ interface BudgetTableProps {
   budgets: Budget[];
   transactions: Transaction[];
   onUpdate: () => void;
+  selectedMonth: Date;
 }
 
-const BudgetTable = ({ budgets, transactions }: BudgetTableProps) => {
+const BudgetTable = ({ budgets, transactions, onUpdate, selectedMonth }: BudgetTableProps) => {
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const { toast } = useToast();
   const calculateActual = (categoryId: string, subcategoryId: string | null) => {
     return transactions
       .filter(t => 
@@ -45,6 +56,32 @@ const BudgetTable = ({ budgets, transactions }: BudgetTableProps) => {
     }
   };
 
+  const handleEdit = (budget: Budget) => {
+    setEditingBudget(budget);
+    setModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from("budgets").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Orçamento excluído com sucesso!" });
+      onUpdate();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleModalClose = () => {
+    setModalOpen(false);
+    setEditingBudget(null);
+    onUpdate();
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -56,12 +93,13 @@ const BudgetTable = ({ budgets, transactions }: BudgetTableProps) => {
             <TableHead className="text-right">Real</TableHead>
             <TableHead className="text-right">Diferença</TableHead>
             <TableHead className="text-center">Status</TableHead>
+            <TableHead className="text-center">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {budgets.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground">
+              <TableCell colSpan={7} className="text-center text-muted-foreground">
                 Nenhum orçamento cadastrado
               </TableCell>
             </TableRow>
@@ -95,12 +133,38 @@ const BudgetTable = ({ budgets, transactions }: BudgetTableProps) => {
                   <TableCell className="text-center">
                     {getStatusBadge(actual, planned)}
                   </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex gap-2 justify-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(budget)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(budget.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               );
             })
           )}
         </TableBody>
       </Table>
+
+      <BudgetModal
+        open={modalOpen}
+        onClose={handleModalClose}
+        onSuccess={onUpdate}
+        budget={editingBudget}
+        defaultMonth={selectedMonth}
+      />
     </div>
   );
 };

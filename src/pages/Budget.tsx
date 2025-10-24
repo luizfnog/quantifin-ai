@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload, Download, Calendar } from "lucide-react";
+import { Upload, Download, Calendar, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BudgetUploadModal from "@/components/budget/BudgetUploadModal";
+import BudgetModal from "@/components/budget/BudgetModal";
 import BudgetVsActualChart from "@/components/budget/BudgetVsActualChart";
 import BudgetTable from "@/components/budget/BudgetTable";
 import { downloadBudgetTemplate } from "@/utils/budgetTemplate";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 const Budget = () => {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<Date>(startOfMonth(new Date()));
   const { toast } = useToast();
 
@@ -32,8 +34,8 @@ const Budget = () => {
         .from("budgets")
         .select(`
           *,
-          category:categories!budgets_category_id_fkey(id, name, color, icon),
-          subcategory:categories!budgets_subcategory_id_fkey(id, name, color, icon)
+          category:categories!category_id(id, name, color, icon),
+          subcategory:categories!subcategory_id(id, name, color, icon)
         `)
         .eq("user_id", user.id)
         .eq("month", monthStr);
@@ -113,9 +115,14 @@ const Budget = () => {
             Template
           </Button>
 
-          <Button onClick={() => setUploadModalOpen(true)} className="bg-gradient-primary hover:shadow-glow">
+          <Button variant="outline" onClick={() => setUploadModalOpen(true)}>
             <Upload className="w-4 h-4 mr-2" />
-            Importar Orçamento
+            Importar CSV
+          </Button>
+
+          <Button onClick={() => setBudgetModalOpen(true)} className="bg-gradient-primary hover:shadow-glow">
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Orçamento
           </Button>
         </div>
       </div>
@@ -131,6 +138,7 @@ const Budget = () => {
           budgets={budgets || []} 
           transactions={transactions || []}
           onUpdate={refetchBudgets}
+          selectedMonth={selectedMonth}
         />
       </Card>
 
@@ -138,6 +146,13 @@ const Budget = () => {
         open={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
         onSuccess={refetchBudgets}
+      />
+
+      <BudgetModal
+        open={budgetModalOpen}
+        onClose={() => setBudgetModalOpen(false)}
+        onSuccess={refetchBudgets}
+        defaultMonth={selectedMonth}
       />
     </div>
   );

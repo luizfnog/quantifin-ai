@@ -91,66 +91,129 @@ const Categories = () => {
     );
   }
 
+  const parentCategories = categories.filter(c => !c.parent_id);
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Categorias</h1>
-          <p className="text-muted-foreground">Organize suas transações por categorias</p>
+          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            Categorias
+          </h1>
+          <p className="text-muted-foreground">
+            Organize suas transações por categorias principais e subcategorias
+          </p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
+        <Button onClick={() => setModalOpen(true)} className="bg-gradient-primary hover:shadow-glow">
           <Plus className="w-4 h-4 mr-2" />
           Nova Categoria
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="space-y-6">
         {categories.length === 0 ? (
-          <Card className="col-span-full p-8 text-center">
+          <Card className="p-8 text-center">
             <p className="text-muted-foreground">
               Nenhuma categoria encontrada. Adicione sua primeira categoria!
             </p>
           </Card>
         ) : (
-          categories.map((category) => (
-            <Card key={category.id} className="p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
-                    style={{ backgroundColor: category.color + "20" }}
-                  >
-                    {category.icon || "📦"}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">{category.name}</h3>
-                    <Badge
-                      style={{ backgroundColor: category.color }}
-                      className="text-white mt-1"
+          parentCategories.map((parent) => {
+            const children = categories.filter(c => c.parent_id === parent.id);
+            
+            return (
+              <Card key={parent.id} className="p-6">
+                {/* Parent Category Header */}
+                <div className="flex items-start justify-between mb-4 pb-4 border-b">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-14 h-14 rounded-lg flex items-center justify-center text-3xl"
+                      style={{ backgroundColor: parent.color + "30" }}
                     >
-                      {category.color}
-                    </Badge>
+                      {parent.icon || "📦"}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-xl">{parent.name}</h3>
+                        <Badge variant="outline">Categoria Principal</Badge>
+                      </div>
+                      <Badge
+                        style={{ backgroundColor: parent.color }}
+                        className="text-white mt-1"
+                      >
+                        {parent.color}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(parent)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(parent.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEdit(category)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(category.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))
+
+                {/* Subcategories */}
+                {children.length > 0 ? (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-muted-foreground mb-3">
+                      Subcategorias ({children.length}):
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {children.map((child) => (
+                        <div
+                          key={child.id}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-card/50 hover:bg-card transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-8 h-8 rounded flex items-center justify-center text-lg"
+                              style={{ backgroundColor: child.color + "20" }}
+                            >
+                              {child.icon || "📄"}
+                            </div>
+                            <span className="font-medium text-sm">{child.name}</span>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(child)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(child.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    Nenhuma subcategoria criada. Clique em "Nova Categoria" e selecione esta como categoria pai.
+                  </div>
+                )}
+              </Card>
+            );
+          })
         )}
       </div>
 
