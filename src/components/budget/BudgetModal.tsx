@@ -196,14 +196,14 @@ const BudgetModal = ({ open, onClose, onSuccess, budget, defaultMonth }: BudgetM
             <div className="space-y-2">
               <Label htmlFor="subcategory">Subcategoria (opcional)</Label>
               <Select
-                value={formData.subcategory_id}
-                onValueChange={(value) => setFormData({ ...formData, subcategory_id: value })}
+                value={formData.subcategory_id || "none"}
+                onValueChange={(value) => setFormData({ ...formData, subcategory_id: value === "none" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a subcategoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma</SelectItem>
+                  <SelectItem value="none">Nenhuma</SelectItem>
                   {subcategories.map((subcat) => (
                     <SelectItem key={subcat.id} value={subcat.id}>
                       {subcat.name}
