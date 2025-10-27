@@ -9,13 +9,15 @@ export const CSV_TEMPLATE_HEADERS = [
 
 export const generateCSVTemplate = () => {
   const headers = CSV_TEMPLATE_HEADERS.join(',');
-  const exampleRow = '2025-01-15,Pagamento Supermercado XYZ,-250.00,Alimentação,Supermercado';
+  const exampleExpense = '2025-01-15,Pagamento Supermercado XYZ,-250.00,Alimentação,Supermercado';
+  const exampleIncome = '2025-01-20,Salário Mensal,3500.00,Renda,';
+  const instructionComment = '# IMPORTANTE: Use valores NEGATIVOS para despesas (ex: -250.00) e POSITIVOS para receitas (ex: 3500.00)';
   
-  return `${headers}\n${exampleRow}`;
+  return `${instructionComment}\n${headers}\n${exampleExpense}\n${exampleIncome}`;
 };
 
 export const downloadCSVTemplate = () => {
-  const csvContent = generateCSVTemplate();
+  const csvContent = '\uFEFF' + generateCSVTemplate(); // Add BOM for UTF-8
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -37,13 +39,15 @@ export interface ParsedTransaction {
 }
 
 export const parseCSVFile = (content: string): ParsedTransaction[] => {
-  const lines = content.split('\n').filter(line => line.trim());
-  const headers = lines[0].split(',').map(h => h.trim());
+  const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+  
+  // Skip header row
+  const dataLines = lines.slice(1);
   
   const transactions: ParsedTransaction[] = [];
   
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim());
+  for (const line of dataLines) {
+    const values = line.split(',').map(v => v.trim());
     
     if (values.length < 3) continue; // Pula linhas inválidas
     
@@ -55,7 +59,10 @@ export const parseCSVFile = (content: string): ParsedTransaction[] => {
       subcategory: values[4] || undefined
     };
     
-    transactions.push(transaction);
+    // Validate that amount is a valid number
+    if (!isNaN(transaction.amount)) {
+      transactions.push(transaction);
+    }
   }
   
   return transactions;

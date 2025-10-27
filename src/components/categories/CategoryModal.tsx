@@ -178,14 +178,43 @@ const CategoryModal = ({ open, onClose, category }: CategoryModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="icon">Emoji (opcional)</Label>
-            <Input
-              id="icon"
-              value={formData.icon}
-              onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-              maxLength={10}
-              placeholder="🏠"
-            />
+            <Label htmlFor="icon">Ícone (opcional)</Label>
+            <Select
+              value={formData.icon || "none"}
+              onValueChange={(value) => setFormData({ ...formData, icon: value === "none" ? "" : value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um ícone" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem ícone</SelectItem>
+                <SelectItem value="🏠">🏠 Casa</SelectItem>
+                <SelectItem value="🍔">🍔 Comida</SelectItem>
+                <SelectItem value="🚗">🚗 Transporte</SelectItem>
+                <SelectItem value="💊">💊 Saúde</SelectItem>
+                <SelectItem value="🎮">🎮 Lazer</SelectItem>
+                <SelectItem value="📚">📚 Educação</SelectItem>
+                <SelectItem value="💰">💰 Renda</SelectItem>
+                <SelectItem value="📦">📦 Outros</SelectItem>
+                <SelectItem value="🔑">🔑 Chave</SelectItem>
+                <SelectItem value="💡">💡 Luz</SelectItem>
+                <SelectItem value="💧">💧 Água</SelectItem>
+                <SelectItem value="📡">📡 Internet</SelectItem>
+                <SelectItem value="🏢">🏢 Condomínio</SelectItem>
+                <SelectItem value="🛒">🛒 Supermercado</SelectItem>
+                <SelectItem value="🍽️">🍽️ Restaurante</SelectItem>
+                <SelectItem value="⛽">⛽ Combustível</SelectItem>
+                <SelectItem value="🚌">🚌 Ônibus</SelectItem>
+                <SelectItem value="🔧">🔧 Manutenção</SelectItem>
+                <SelectItem value="👨‍⚕️">👨‍⚕️ Médico</SelectItem>
+                <SelectItem value="🏥">🏥 Hospital</SelectItem>
+                <SelectItem value="💳">💳 Cartão</SelectItem>
+                <SelectItem value="🎯">🎯 Meta</SelectItem>
+                <SelectItem value="📱">📱 Telefone</SelectItem>
+                <SelectItem value="👕">👕 Vestuário</SelectItem>
+                <SelectItem value="✈️">✈️ Viagem</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
@@ -195,14 +224,24 @@ const CategoryModal = ({ open, onClose, category }: CategoryModalProps) => {
                 id="color"
                 type="color"
                 value={formData.color}
-                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                onChange={(e) => {
+                  const hexValue = e.target.value.toUpperCase();
+                  setFormData({ ...formData, color: hexValue });
+                }}
                 className="w-20 h-10"
               />
               <Input
                 value={formData.color}
-                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                onChange={(e) => {
+                  let value = e.target.value.toUpperCase();
+                  if (!value.startsWith('#')) {
+                    value = '#' + value;
+                  }
+                  setFormData({ ...formData, color: value });
+                }}
                 pattern="^#[0-9A-F]{6}$"
                 maxLength={7}
+                placeholder="#10B981"
               />
             </div>
           </div>

@@ -13,7 +13,10 @@ export const downloadBudgetTemplate = () => {
     ["2025-01-01", "Transporte", "Combustível", "300.00"],
   ];
 
+  const instructionComment = "# IMPORTANTE: Use formato YYYY-MM-DD para datas. Valores devem ser positivos. Encoding UTF-8.";
+  
   const csvContent = [
+    instructionComment,
     headers.join(","),
     ...exampleRows.map(row => row.join(","))
   ].join("\n");

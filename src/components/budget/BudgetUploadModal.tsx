@@ -62,7 +62,15 @@ const BudgetUploadModal = ({ open, onClose, onSuccess }: BudgetUploadModalProps)
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const text = await file.text();
+      const arrayBuffer = await file.arrayBuffer();
+      const decoder = new TextDecoder('utf-8');
+      let text = decoder.decode(arrayBuffer);
+      
+      // Remove BOM if present
+      if (text.charCodeAt(0) === 0xFEFF) {
+        text = text.slice(1);
+      }
+      
       const rows = parseCSV(text);
       
       // Skip header

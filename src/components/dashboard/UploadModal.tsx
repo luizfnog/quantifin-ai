@@ -59,7 +59,15 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
     });
     
     try {
-      const content = await file.text();
+      const arrayBuffer = await file.arrayBuffer();
+      const decoder = new TextDecoder('utf-8');
+      let content = decoder.decode(arrayBuffer);
+      
+      // Remove BOM if present
+      if (content.charCodeAt(0) === 0xFEFF) {
+        content = content.slice(1);
+      }
+      
       const transactions = parseCSVFile(content);
       
       const { data: { user } } = await supabase.auth.getUser();

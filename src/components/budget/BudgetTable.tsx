@@ -36,15 +36,21 @@ const BudgetTable = ({ budgets, transactions, onUpdate, selectedMonth }: BudgetT
   const [modalOpen, setModalOpen] = useState(false);
   const { toast } = useToast();
   const calculateActual = (categoryId: string, subcategoryId: string | null) => {
-    return transactions
-      .filter(t => 
-        t.category_id === categoryId && 
-        (subcategoryId ? t.subcategory_id === subcategoryId : true)
-      )
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    return Math.abs(
+      transactions
+        .filter(t => 
+          t.category_id === categoryId && 
+          (subcategoryId ? t.subcategory_id === subcategoryId : true)
+        )
+        .reduce((sum, t) => sum + Number(t.amount), 0)
+    );
   };
 
   const getStatusBadge = (actual: number, planned: number) => {
+    if (planned === 0) {
+      return <Badge className="bg-muted/20 text-muted-foreground hover:bg-muted/30">Sem Orçamento</Badge>;
+    }
+    
     const percentage = (actual / planned) * 100;
     
     if (percentage < 80) {
