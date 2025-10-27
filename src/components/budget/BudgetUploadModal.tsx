@@ -24,8 +24,18 @@ const BudgetUploadModal = ({ open, onClose, onSuccess }: BudgetUploadModalProps)
     }
   };
 
+  const detectDelimiter = (line: string): string => {
+    const semicolonCount = (line.match(/;/g) || []).length;
+    const commaCount = (line.match(/,/g) || []).length;
+    return semicolonCount > commaCount ? ';' : ',';
+  };
+
   const parseCSV = (text: string): string[][] => {
-    const lines = text.split("\n").filter(line => line.trim());
+    const lines = text.split("\n").filter(line => line.trim() && !line.startsWith('#'));
+    if (lines.length === 0) return [];
+    
+    const delimiter = detectDelimiter(lines[0]);
+    
     return lines.map(line => {
       const values: string[] = [];
       let current = "";
@@ -35,7 +45,7 @@ const BudgetUploadModal = ({ open, onClose, onSuccess }: BudgetUploadModalProps)
         const char = line[i];
         if (char === '"') {
           inQuotes = !inQuotes;
-        } else if (char === "," && !inQuotes) {
+        } else if (char === delimiter && !inQuotes) {
           values.push(current.trim());
           current = "";
         } else {
@@ -45,6 +55,23 @@ const BudgetUploadModal = ({ open, onClose, onSuccess }: BudgetUploadModalProps)
       values.push(current.trim());
       return values;
     });
+  };
+  
+  const parseDate = (dateStr: string): Date => {
+    // Try DD/MM/YYYY format first (European)
+    const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (ddmmyyyyMatch) {
+      const [, day, month, year] = ddmmyyyyMatch;
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    // Try YYYY-MM-DD format (ISO)
+    const yyyymmddMatch = dateStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if (yyyymmddMatch) {
+      return parse(dateStr, "yyyy-MM-dd", new Date());
+    }
+    
+    throw new Error(`Formato de data inválido: ${dateStr}`);
   };
 
   const handleUpload = async () => {
@@ -85,17 +112,25 @@ const BudgetUploadModal = ({ open, onClose, onSuccess }: BudgetUploadModalProps)
       if (!categories) throw new Error("Failed to fetch categories");
 
       const budgetsToInsert = [];
+      const errors: string[] = [];
 
-      for (const row of dataRows) {
-        if (row.length < 4) continue;
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const lineNumber = i + 2; // +2 because we skip header and arrays are 0-indexed
+        
+        if (row.length < 4) {
+          errors.push(`Linha ${lineNumber}: Dados insuficientes (mínimo 4 colunas)`);
+          continue;
+        }
 
         const [monthStr, parentCategoryName, subcategoryName, amountStr] = row;
 
         // Parse month
         let month: Date;
         try {
-          month = parse(monthStr, "yyyy-MM-dd", new Date());
-        } catch {
+          month = parseDate(monthStr);
+        } catch (error: any) {
+          errors.push(`Linha ${lineNumber}: ${error.message}`);
           continue;
         }
 
@@ -104,15 +139,25 @@ const BudgetUploadModal = ({ open, onClose, onSuccess }: BudgetUploadModalProps)
           c => c.name.toLowerCase() === parentCategoryName.toLowerCase() && !c.parent_id
         );
 
-        if (!parentCategory) continue;
+        if (!parentCategory) {
+          errors.push(`Linha ${lineNumber}: Categoria '${parentCategoryName}' não encontrada`);
+          continue;
+        }
 
         // Find subcategory
         const subcategory = categories.find(
           c => c.name.toLowerCase() === subcategoryName.toLowerCase() && c.parent_id === parentCategory.id
         );
 
+        if (subcategoryName && !subcategory) {
+          errors.push(`Linha ${lineNumber}: Subcategoria '${subcategoryName}' não encontrada para '${parentCategoryName}'`);
+        }
+
         const amount = parseFloat(amountStr.replace(",", "."));
-        if (isNaN(amount)) continue;
+        if (isNaN(amount)) {
+          errors.push(`Linha ${lineNumber}: Valor inválido '${amountStr}'`);
+          continue;
+        }
 
         budgetsToInsert.push({
           user_id: user.id,
@@ -124,7 +169,10 @@ const BudgetUploadModal = ({ open, onClose, onSuccess }: BudgetUploadModalProps)
       }
 
       if (budgetsToInsert.length === 0) {
-        throw new Error("Nenhum orçamento válido encontrado no arquivo");
+        const errorMsg = errors.length > 0 
+          ? `Nenhum orçamento válido encontrado.\n\nErros:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : ''}`
+          : "Nenhum orçamento válido encontrado no arquivo";
+        throw new Error(errorMsg);
       }
 
       const { error } = await supabase
@@ -136,19 +184,25 @@ const BudgetUploadModal = ({ open, onClose, onSuccess }: BudgetUploadModalProps)
 
       if (error) throw error;
 
+      const successMsg = budgetsToInsert.length === dataRows.length
+        ? `${budgetsToInsert.length} itens de orçamento foram importados.`
+        : `${budgetsToInsert.length} itens importados de ${dataRows.length} linhas.`;
+      
       toast({
         title: "Orçamento importado com sucesso",
-        description: `${budgetsToInsert.length} itens de orçamento foram importados.`,
+        description: successMsg,
       });
 
       onSuccess();
       onClose();
       setFile(null);
     } catch (error: any) {
+      console.error('Erro ao importar orçamento:', error);
       toast({
         title: "Erro ao importar orçamento",
         description: error.message,
         variant: "destructive",
+        duration: 10000,
       });
     } finally {
       setUploading(false);

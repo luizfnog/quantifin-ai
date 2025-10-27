@@ -38,31 +38,84 @@ export interface ParsedTransaction {
   subcategory?: string;
 }
 
+const detectDelimiter = (line: string): string => {
+  const semicolonCount = (line.match(/;/g) || []).length;
+  const commaCount = (line.match(/,/g) || []).length;
+  return semicolonCount > commaCount ? ';' : ',';
+};
+
+const parseDate = (dateStr: string): string => {
+  // Try DD/MM/YYYY format first (European)
+  const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const [, day, month, year] = ddmmyyyyMatch;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  
+  // Try YYYY-MM-DD format (ISO)
+  const yyyymmddMatch = dateStr.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (yyyymmddMatch) {
+    const [, year, month, day] = yyyymmddMatch;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  
+  throw new Error(`Formato de data inválido: ${dateStr}. Use DD/MM/YYYY ou YYYY-MM-DD`);
+};
+
+const parseAmount = (amountStr: string): number => {
+  // Replace comma with dot for decimal separator
+  const normalized = amountStr.replace(',', '.');
+  const amount = parseFloat(normalized);
+  if (isNaN(amount)) {
+    throw new Error(`Valor inválido: ${amountStr}`);
+  }
+  return amount;
+};
+
 export const parseCSVFile = (content: string): ParsedTransaction[] => {
   const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+  
+  if (lines.length < 2) {
+    throw new Error('Arquivo CSV vazio ou inválido');
+  }
+  
+  // Detect delimiter from header
+  const delimiter = detectDelimiter(lines[0]);
   
   // Skip header row
   const dataLines = lines.slice(1);
   
   const transactions: ParsedTransaction[] = [];
+  const errors: string[] = [];
   
-  for (const line of dataLines) {
-    const values = line.split(',').map(v => v.trim());
+  for (let i = 0; i < dataLines.length; i++) {
+    const lineNumber = i + 2; // +2 because we skip header and arrays are 0-indexed
+    const line = dataLines[i];
     
-    if (values.length < 3) continue; // Pula linhas inválidas
-    
-    const transaction: ParsedTransaction = {
-      date: values[0],
-      description: values[1],
-      amount: parseFloat(values[2]),
-      category: values[3] || undefined,
-      subcategory: values[4] || undefined
-    };
-    
-    // Validate that amount is a valid number
-    if (!isNaN(transaction.amount)) {
+    try {
+      const values = line.split(delimiter).map(v => v.trim());
+      
+      if (values.length < 3) {
+        errors.push(`Linha ${lineNumber}: Dados insuficientes (mínimo 3 colunas)`);
+        continue;
+      }
+      
+      const transaction: ParsedTransaction = {
+        date: parseDate(values[0]),
+        description: values[1],
+        amount: parseAmount(values[2]),
+        category: values[3] || undefined,
+        subcategory: values[4] || undefined
+      };
+      
       transactions.push(transaction);
+    } catch (error: any) {
+      errors.push(`Linha ${lineNumber}: ${error.message}`);
     }
+  }
+  
+  if (transactions.length === 0 && errors.length > 0) {
+    throw new Error(`Nenhuma transação válida encontrada.\n\nErros:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : ''}`);
   }
   
   return transactions;

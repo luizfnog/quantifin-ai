@@ -9,6 +9,7 @@ import BudgetUploadModal from "@/components/budget/BudgetUploadModal";
 import BudgetModal from "@/components/budget/BudgetModal";
 import BudgetVsActualChart from "@/components/budget/BudgetVsActualChart";
 import BudgetTable from "@/components/budget/BudgetTable";
+import BudgetAnnualTable from "@/components/budget/BudgetAnnualTable";
 import { downloadBudgetTemplate } from "@/utils/budgetTemplate";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -65,6 +66,46 @@ const Budget = () => {
         .eq("type", "expense")
         .gte("date", startDate)
         .lte("date", endDate);
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch all budgets for annual view
+  const { data: allBudgets } = useQuery({
+    queryKey: ["budgets-all"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      
+      const { data, error } = await supabase
+        .from("budgets")
+        .select(`
+          *,
+          category:categories!category_id(id, name, color, icon),
+          subcategory:categories!subcategory_id(id, name, color, icon)
+        `)
+        .eq("user_id", user.id)
+        .order("month", { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch all transactions for annual view
+  const { data: allTransactions } = useQuery({
+    queryKey: ["transactions-all"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("type", "expense");
 
       if (error) throw error;
       return data;
@@ -141,6 +182,11 @@ const Budget = () => {
           selectedMonth={selectedMonth}
         />
       </Card>
+
+      <BudgetAnnualTable 
+        budgets={allBudgets || []} 
+        transactions={allTransactions || []} 
+      />
 
       <BudgetUploadModal
         open={uploadModalOpen}
