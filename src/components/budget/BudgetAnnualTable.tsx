@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { format, startOfYear, endOfYear, eachMonthOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -28,6 +28,15 @@ interface Transaction {
   type: string;
   category_id: string;
   subcategory_id?: string;
+  category?: {
+    id: string;
+    name: string;
+    color: string;
+  };
+  subcategory?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface BudgetAnnualTableProps {
@@ -42,6 +51,7 @@ interface MonthlyData {
 }
 
 interface SubcategoryRow {
+  categoryId: string;
   subcategoryId: string | null;
   subcategoryName: string;
   categoryName: string;
@@ -83,6 +93,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
 
       if (!subcategoryMap.has(key)) {
         subcategoryMap.set(key, {
+          categoryId: budget.category.id,
           subcategoryId: budget.subcategory?.id || null,
           subcategoryName: budget.subcategory?.name || budget.category.name,
           categoryName: budget.category.name,
@@ -108,22 +119,37 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       const key = `${transaction.category_id}-${transaction.subcategory_id || 'null'}`;
       const monthKey = format(transDate, 'yyyy-MM');
 
-      // Create entry even if no budget exists (14.2 - Show partial data)
+      // Create entry even if no budget exists (Show partial data)
       if (!subcategoryMap.has(key)) {
-        // Try to get category/subcategory info from transaction
-        const category = budgets.find(b => b.category.id === transaction.category_id)?.category;
-        const subcategory = budgets.find(b => b.subcategory?.id === transaction.subcategory_id)?.subcategory;
-        
-        if (category) {
+        // Prefer info from transaction joins; fallback to budgets
+        const categoryFromTx = transaction.category;
+        const subcategoryFromTx = transaction.subcategory;
+
+        let categoryName = categoryFromTx?.name;
+        let categoryColor = categoryFromTx?.color;
+        let subcategoryName = subcategoryFromTx?.name || '';
+
+        if (!categoryName) {
+          const category = budgets.find(b => b.category.id === transaction.category_id)?.category;
+          categoryName = category?.name;
+          categoryColor = category?.color;
+        }
+        if (!subcategoryName && transaction.subcategory_id) {
+          const subcategory = budgets.find(b => b.subcategory?.id === transaction.subcategory_id)?.subcategory;
+          subcategoryName = subcategory?.name || '';
+        }
+
+        if (categoryName && categoryColor) {
           subcategoryMap.set(key, {
+            categoryId: transaction.category_id,
             subcategoryId: transaction.subcategory_id || null,
-            subcategoryName: subcategory?.name || category.name,
-            categoryName: category.name,
-            categoryColor: category.color,
+            subcategoryName: subcategoryName || categoryName,
+            categoryName,
+            categoryColor,
             monthlyData: {},
           });
         } else {
-          return; // Skip if we can't find category info
+          return; // Skip if we can't resolve category info at all
         }
       }
 
@@ -179,23 +205,6 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
     return <Badge variant="outline" className="font-mono">0.00 (0%)</Badge>;
   };
 
-  if (rows.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Acompanhamento Anual de Orçamento</CardTitle>
-          <CardDescription>
-            Visualização consolidada de Orçado vs. Real por subcategoria ao longo do ano
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-center py-8">
-            Nenhum dado de orçamento disponível para o período selecionado.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card>
@@ -227,7 +236,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
             <TableHeader>
               <TableRow>
                 <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]">
-                  Subcategoria
+                  Categoria / Subcategoria
                 </TableHead>
                 {months.map(month => (
                   <TableHead key={month.toISOString()} colSpan={3} className="text-center border-l">
@@ -237,13 +246,16 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
               </TableRow>
               <TableRow className="text-xs">
                 <TableHead className="sticky left-0 bg-background z-10"></TableHead>
-                {months.map(month => (
-                  <>
-                    <TableHead key={`${month}-prev`} className="text-center border-l">Prev.</TableHead>
-                    <TableHead key={`${month}-real`} className="text-center">Real</TableHead>
-                    <TableHead key={`${month}-var`} className="text-center">Var.</TableHead>
-                  </>
-                ))}
+                {months.map((month) => {
+                  const key = format(month, 'yyyy-MM');
+                  return (
+                    <Fragment key={key}>
+                      <TableHead key={`${key}-prev`} className="text-center border-l">Prev.</TableHead>
+                      <TableHead key={`${key}-real`} className="text-center">Real</TableHead>
+                      <TableHead key={`${key}-var`} className="text-center">Var.</TableHead>
+                    </Fragment>
+                  );
+                })}
               </TableRow>
             </TableHeader>
             <TableBody>
