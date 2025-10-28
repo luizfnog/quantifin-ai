@@ -65,13 +65,19 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
   
   // Generate available years from budgets and transactions
   const availableYears = Array.from(
-    new Set([
-      ...budgets.map(b => new Date(b.month).getFullYear()),
-      ...transactions.map(t => new Date(t.date).getFullYear()),
-      currentYear - 1,
-      currentYear,
-      currentYear + 1,
-    ])
+    new Set(
+      [
+        ...budgets
+          .map((b) => parseInt(b.month.substring(0, 4)))
+          .filter((y) => !Number.isNaN(y)),
+        ...transactions
+          .map((t) => parseInt(t.date.substring(0, 4)))
+          .filter((y) => !Number.isNaN(y)),
+        currentYear - 1,
+        currentYear,
+        currentYear + 1,
+      ]
+    )
   ).sort((a, b) => b - a);
 
   // Generate months for selected year as strings (YYYY-MM)
@@ -109,12 +115,13 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       if (!row.monthlyData[monthKey]) {
         row.monthlyData[monthKey] = { planned: 0, actual: 0, variance: 0 };
       }
-      row.monthlyData[monthKey].planned = budget.planned_amount;
+      row.monthlyData[monthKey].planned += budget.planned_amount;
     });
 
     // Process transactions - show even if no budget exists
     transactions.forEach(transaction => {
-      if (transaction.type !== 'expense') return;
+      const isExpense = transaction.type === 'expense' || (typeof transaction.amount === 'number' && Number(transaction.amount) < 0);
+      if (!isExpense) return;
       
       // Extract year-month directly from date string (YYYY-MM-DD format)
       const monthKey = transaction.date.substring(0, 7); // "2025-10"
@@ -244,10 +251,11 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                   Categoria / Subcategoria
                 </TableHead>
                 {months.map(monthKey => {
-                  const monthDate = new Date(`${monthKey}-01`);
+                  const monthIndex = parseInt(monthKey.substring(5, 7), 10) - 1;
+                  const labelDate = new Date(Number(selectedYear), monthIndex, 1);
                   return (
                     <TableHead key={monthKey} colSpan={3} className="text-center border-l">
-                      {format(monthDate, 'MMM', { locale: ptBR })}
+                      {format(labelDate, 'MMM', { locale: ptBR })}
                     </TableHead>
                   );
                 })}
