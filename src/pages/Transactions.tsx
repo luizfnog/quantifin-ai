@@ -131,7 +131,11 @@ const Transactions = () => {
       filtered = filtered.filter(t => Math.abs(t.amount) <= parseFloat(filters.amountMax));
     }
     if (filters.categoryId) {
-      filtered = filtered.filter(t => t.category_id === filters.categoryId);
+      if (filters.categoryId === "no_category") {
+        filtered = filtered.filter(t => !t.category_id);
+      } else {
+        filtered = filtered.filter(t => t.category_id === filters.categoryId);
+      }
     }
     if (filters.subcategoryId) {
       filtered = filtered.filter(t => t.subcategory_id === filters.subcategoryId);

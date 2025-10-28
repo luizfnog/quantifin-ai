@@ -173,6 +173,7 @@ const TransactionFiltersComponent = ({ filters, onFiltersChange }: TransactionFi
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="no_category">Sem Categoria</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.icon} {cat.name}
