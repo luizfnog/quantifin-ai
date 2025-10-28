@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload, Download, Calendar, Plus } from "lucide-react";
+import { Upload, Download, Calendar, Plus, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BudgetUploadModal from "@/components/budget/BudgetUploadModal";
 import BudgetModal from "@/components/budget/BudgetModal";
@@ -22,6 +22,8 @@ const Budget = () => {
   const [budgetModalOpen, setBudgetModalOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<Date>(startOfMonth(new Date()));
   const { toast } = useToast();
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { data: budgets, refetch: refetchBudgets } = useQuery({
     queryKey: ["budgets", selectedMonth],
@@ -48,7 +50,7 @@ const Budget = () => {
     },
   });
 
-  const { data: transactions } = useQuery({
+  const { data: transactions, refetch: refetchTransactions } = useQuery({
     queryKey: ["transactions", selectedMonth],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -75,7 +77,7 @@ const Budget = () => {
   });
 
   // Fetch all budgets for annual view
-  const { data: allBudgets } = useQuery({
+  const { data: allBudgets, refetch: refetchAllBudgets } = useQuery({
     queryKey: ["budgets-all"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -97,7 +99,7 @@ const Budget = () => {
   });
 
   // Fetch all transactions for annual view
-  const { data: allTransactions } = useQuery({
+  const { data: allTransactions, refetch: refetchAllTransactions } = useQuery({
     queryKey: ["transactions-all"],
     refetchOnMount: true,
     refetchOnWindowFocus: false,
@@ -138,6 +140,30 @@ const Budget = () => {
     });
   };
 
+  const handleRefreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchBudgets(),
+        refetchTransactions(),
+        refetchAllBudgets(),
+        refetchAllTransactions(),
+      ]);
+      toast({
+        title: "Dados atualizados",
+        description: "Todas as informações foram recarregadas com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar",
+        description: "Ocorreu um erro ao recarregar os dados.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -151,6 +177,15 @@ const Budget = () => {
         </div>
 
         <div className="flex gap-3">
+          <Button 
+            variant="outline" 
+            onClick={handleRefreshData}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Atualizando...' : 'Atualizar Dados'}
+          </Button>
+
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-[240px] justify-start">

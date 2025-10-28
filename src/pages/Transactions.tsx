@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import TransactionModal from "@/components/transactions/TransactionModal";
 import UploadModal from "@/components/dashboard/UploadModal";
+import TransactionFiltersComponent, { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import {
   Pagination,
   PaginationContent,
@@ -48,6 +49,7 @@ interface Transaction {
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -56,6 +58,15 @@ const Transactions = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   const { toast } = useToast();
+  const [filters, setFilters] = useState<TransactionFilters>({
+    dateFrom: "",
+    dateTo: "",
+    amountMin: "",
+    amountMax: "",
+    categoryId: "",
+    subcategoryId: "",
+    description: "",
+  });
 
   const fetchTransactions = async () => {
     try {
@@ -84,6 +95,7 @@ const Transactions = () => {
       }));
 
       setTransactions((enrichedData || []) as Transaction[]);
+      setFilteredTransactions((enrichedData || []) as Transaction[]);
     } catch (error: any) {
       toast({
         title: "Erro ao carregar transações",
@@ -98,6 +110,40 @@ const Transactions = () => {
   useEffect(() => {
     fetchTransactions();
   }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [filters, transactions]);
+
+  const applyFilters = () => {
+    let filtered = [...transactions];
+
+    if (filters.dateFrom) {
+      filtered = filtered.filter(t => t.date >= filters.dateFrom);
+    }
+    if (filters.dateTo) {
+      filtered = filtered.filter(t => t.date <= filters.dateTo);
+    }
+    if (filters.amountMin) {
+      filtered = filtered.filter(t => Math.abs(t.amount) >= parseFloat(filters.amountMin));
+    }
+    if (filters.amountMax) {
+      filtered = filtered.filter(t => Math.abs(t.amount) <= parseFloat(filters.amountMax));
+    }
+    if (filters.categoryId) {
+      filtered = filtered.filter(t => t.category_id === filters.categoryId);
+    }
+    if (filters.subcategoryId) {
+      filtered = filtered.filter(t => t.subcategory_id === filters.subcategoryId);
+    }
+    if (filters.description) {
+      const searchTerm = filters.description.toLowerCase();
+      filtered = filtered.filter(t => t.description.toLowerCase().includes(searchTerm));
+    }
+
+    setFilteredTransactions(filtered);
+    setCurrentPage(1);
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -147,8 +193,12 @@ const Transactions = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const pageTransactions = paginatedTransactions.map(t => t.id);
-      setSelectedIds(new Set(pageTransactions));
+      const allTransactionIds = filteredTransactions.map(t => t.id);
+      setSelectedIds(new Set(allTransactionIds));
+      toast({
+        title: "Todas as transações selecionadas",
+        description: `${allTransactionIds.length} transação(ões) selecionada(s) para deleção.`,
+      });
     } else {
       setSelectedIds(new Set());
     }
@@ -181,10 +231,10 @@ const Transactions = () => {
   };
 
   // Pagination logic
-  const totalPages = Math.ceil(transactions.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedTransactions = transactions.slice(startIndex, endIndex);
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
 
   if (loading) {
     return (
@@ -202,7 +252,9 @@ const Transactions = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Transações</h1>
-          <p className="text-muted-foreground">Gerencie todos os seus lançamentos</p>
+          <p className="text-muted-foreground">
+            Gerencie todos os seus lançamentos • {filteredTransactions.length} de {transactions.length} transações
+          </p>
         </div>
         <div className="flex gap-3">
           {selectedIds.size > 0 && (
@@ -222,14 +274,17 @@ const Transactions = () => {
         </div>
       </div>
 
+      <TransactionFiltersComponent filters={filters} onFiltersChange={setFilters} />
+
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
-                  checked={paginatedTransactions.length > 0 && paginatedTransactions.every(t => selectedIds.has(t.id))}
+                  checked={filteredTransactions.length > 0 && filteredTransactions.every(t => selectedIds.has(t.id))}
                   onCheckedChange={handleSelectAll}
+                  title="Selecionar todas as transações"
                 />
               </TableHead>
               <TableHead>Data</TableHead>
