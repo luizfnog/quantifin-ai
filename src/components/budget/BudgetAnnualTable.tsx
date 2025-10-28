@@ -85,11 +85,13 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
 
     // Process budgets
     budgets.forEach(budget => {
-      const budgetDate = new Date(budget.month + 'T00:00:00');
-      if (budgetDate.getFullYear() !== parseInt(selectedYear)) return;
+      // Extract year-month directly from date string (YYYY-MM-DD format)
+      const monthKey = budget.month.substring(0, 7); // "2025-09"
+      const budgetYear = parseInt(monthKey.substring(0, 4));
+      
+      if (budgetYear !== parseInt(selectedYear)) return;
 
       const key = `${budget.category.id}-${budget.subcategory?.id || 'null'}`;
-      const monthKey = format(budgetDate, 'yyyy-MM');
 
       if (!subcategoryMap.has(key)) {
         subcategoryMap.set(key, {
@@ -113,11 +115,13 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
     transactions.forEach(transaction => {
       if (transaction.type !== 'expense') return;
       
-      const transDate = new Date(transaction.date + 'T00:00:00');
-      if (transDate.getFullYear() !== parseInt(selectedYear)) return;
+      // Extract year-month directly from date string (YYYY-MM-DD format)
+      const monthKey = transaction.date.substring(0, 7); // "2025-10"
+      const transactionYear = parseInt(monthKey.substring(0, 4));
+      
+      if (transactionYear !== parseInt(selectedYear)) return;
 
       const key = `${transaction.category_id}-${transaction.subcategory_id || 'null'}`;
-      const monthKey = format(transDate, 'yyyy-MM');
 
       // Create entry even if no budget exists (Show partial data)
       if (!subcategoryMap.has(key)) {
