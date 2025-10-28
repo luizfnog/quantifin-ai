@@ -56,7 +56,7 @@ const Transactions = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
+  const [itemsPerPage, setItemsPerPage] = useState(100);
   const { toast } = useToast();
   const [filters, setFilters] = useState<TransactionFilters>({
     dateFrom: "",
@@ -265,7 +265,7 @@ const Transactions = () => {
         <div>
           <h1 className="text-3xl font-bold">Transações</h1>
           <p className="text-muted-foreground">
-            Gerencie todos os seus lançamentos • {filteredTransactions.length} de {transactions.length} transações
+            Mostrando {filteredTransactions.length} de {transactions.length} transações • Página {currentPage} de {totalPages}
           </p>
         </div>
         <div className="flex gap-3">
@@ -287,6 +287,29 @@ const Transactions = () => {
       </div>
 
       <TransactionFiltersComponent filters={filters} onFiltersChange={setFilters} />
+
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted-foreground">
+          Exibindo {startIndex + 1}-{Math.min(endIndex, filteredTransactions.length)} de {filteredTransactions.length} transações
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-muted-foreground">Itens por página:</label>
+          <select 
+            value={itemsPerPage} 
+            onChange={(e) => {
+              setItemsPerPage(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="border rounded px-2 py-1 text-sm"
+          >
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+            <option value={500}>500</option>
+            <option value={1000}>1000</option>
+          </select>
+        </div>
+      </div>
 
       <Card>
         <Table>
