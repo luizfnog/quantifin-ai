@@ -2,9 +2,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { useState, Fragment } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 interface Budget {
   id: string;
@@ -59,9 +61,18 @@ interface SubcategoryRow {
   monthlyData: Record<string, MonthlyData>;
 }
 
+interface CategoryAggregatedRow {
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string;
+  monthlyData: Record<string, MonthlyData>;
+  subcategories: SubcategoryRow[];
+}
+
 const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) => {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   
   // Generate available years from budgets and transactions
   const availableYears = Array.from(
@@ -86,8 +97,8 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
     return `${selectedYear}-${monthNum}`;
   });
 
-  // Process data by subcategory
-  const processData = (): SubcategoryRow[] => {
+  // Process data by subcategory and aggregate by category
+  const processData = (): CategoryAggregatedRow[] => {
     const subcategoryMap = new Map<string, SubcategoryRow>();
 
     // Process budgets
@@ -105,17 +116,6 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
         monthKey = `${nextY}-${String(nextM).padStart(2, '0')}`;
       }
       const budgetYear = parseInt(monthKey.substring(0, 4), 10);
-      
-      console.log('Budget processing:', {
-        original_month: budget.month,
-        extracted_monthKey: rawMonthKey,
-        adjusted_monthKey: monthKey,
-        budgetYear,
-        selectedYear,
-        category: budget.category.name,
-        subcategory: budget.subcategory?.name,
-        planned_amount: budget.planned_amount
-      });
       
       if (budgetYear !== parseInt(selectedYear)) return;
 
@@ -140,10 +140,6 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
     });
 
     // Process transactions - show even if no budget exists
-    console.log('Total transactions received:', transactions.length);
-    console.log('October transactions:', transactions.filter(t => t.date.startsWith('2025-10')).length);
-    console.log('Sample October transaction:', transactions.find(t => t.date.startsWith('2025-10')));
-    
     transactions.forEach(transaction => {
       const isExpense = transaction.type === 'expense' || (typeof transaction.amount === 'number' && Number(transaction.amount) < 0);
       if (!isExpense) return;
@@ -152,17 +148,6 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       const rawMonthKey = transaction.date.substring(0, 7); // "YYYY-MM"
       const monthKey = rawMonthKey;
       const transactionYear = parseInt(monthKey.substring(0, 4));
-      
-      console.log('Transaction processing:', {
-        original_date: transaction.date,
-        extracted_monthKey: rawMonthKey,
-        adjusted_monthKey: monthKey,
-        transactionYear,
-        selectedYear,
-        type: transaction.type,
-        amount: transaction.amount,
-        category_id: transaction.category_id
-      });
       
       if (transactionYear !== parseInt(selectedYear)) return;
 
@@ -217,13 +202,57 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       });
     });
 
-    return Array.from(subcategoryMap.values()).sort((a, b) => 
+    const subcategoryRows = Array.from(subcategoryMap.values()).sort((a, b) => 
       a.categoryName.localeCompare(b.categoryName) || 
       a.subcategoryName.localeCompare(b.subcategoryName)
     );
+
+    // Aggregate by category
+    const categoryMap = new Map<string, CategoryAggregatedRow>();
+
+    subcategoryRows.forEach(subRow => {
+      if (!categoryMap.has(subRow.categoryId)) {
+        categoryMap.set(subRow.categoryId, {
+          categoryId: subRow.categoryId,
+          categoryName: subRow.categoryName,
+          categoryColor: subRow.categoryColor,
+          monthlyData: {},
+          subcategories: [],
+        });
+      }
+
+      const categoryRow = categoryMap.get(subRow.categoryId)!;
+      categoryRow.subcategories.push(subRow);
+
+      // Aggregate monthly data
+      Object.entries(subRow.monthlyData).forEach(([monthKey, data]) => {
+        if (!categoryRow.monthlyData[monthKey]) {
+          categoryRow.monthlyData[monthKey] = { planned: 0, actual: 0, variance: 0 };
+        }
+        categoryRow.monthlyData[monthKey].planned += data.planned;
+        categoryRow.monthlyData[monthKey].actual += data.actual;
+        categoryRow.monthlyData[monthKey].variance += data.variance;
+      });
+    });
+
+    return Array.from(categoryMap.values()).sort((a, b) => 
+      a.categoryName.localeCompare(b.categoryName)
+    );
   };
 
-  const rows = processData();
+  const categoryRows = processData();
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
 
   const getVarianceBadge = (variance: number, planned: number, actual: number) => {
     // Show variance even if planned is 0 (14.2 - Show partial data)
@@ -309,39 +338,87 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row, idx) => (
-                <TableRow key={idx}>
-                  <TableCell className="sticky left-0 bg-background z-10 font-medium">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: row.categoryColor }}
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm">{row.subcategoryName}</span>
-                        <span className="text-xs text-muted-foreground">{row.categoryName}</span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  {months.map(monthKey => {
-                    const data = row.monthlyData[monthKey] || { planned: 0, actual: 0, variance: 0 };
-                    
-                    return (
-                      <Fragment key={monthKey}>
-                        <TableCell className="text-right border-l font-mono text-sm">
-                          {data.planned > 0 ? data.planned.toFixed(2) : (data.actual > 0 ? '0.00' : '-')}
+              {categoryRows.map((categoryRow) => {
+                const isExpanded = expandedCategories.has(categoryRow.categoryId);
+                const hasSubcategories = categoryRow.subcategories.length > 1;
+
+                return (
+                  <Fragment key={categoryRow.categoryId}>
+                    {/* Parent Category Row */}
+                    <TableRow className="bg-muted/50 font-semibold hover:bg-muted/70">
+                      <TableCell className="sticky left-0 bg-muted/50 hover:bg-muted/70 z-10">
+                        <div className="flex items-center gap-2">
+                          {hasSubcategories && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => toggleCategory(categoryRow.categoryId)}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                          <div
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: categoryRow.categoryColor }}
+                          />
+                          <span className="text-sm">{categoryRow.categoryName}</span>
+                        </div>
+                      </TableCell>
+                      {months.map(monthKey => {
+                        const data = categoryRow.monthlyData[monthKey] || { planned: 0, actual: 0, variance: 0 };
+                        
+                        return (
+                          <Fragment key={monthKey}>
+                            <TableCell className="text-right border-l font-mono text-sm">
+                              {data.planned > 0 ? data.planned.toFixed(2) : (data.actual > 0 ? '0.00' : '-')}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">
+                              {data.actual > 0 ? data.actual.toFixed(2) : (data.planned > 0 ? '0.00' : '-')}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {(data.planned > 0 || data.actual > 0) ? getVarianceBadge(data.variance, data.planned, data.actual) : '-'}
+                            </TableCell>
+                          </Fragment>
+                        );
+                      })}
+                    </TableRow>
+
+                    {/* Subcategory Rows (Drill-down) */}
+                    {isExpanded && hasSubcategories && categoryRow.subcategories.map((subRow, subIdx) => (
+                      <TableRow key={`${categoryRow.categoryId}-${subIdx}`} className="bg-background/50">
+                        <TableCell className="sticky left-0 bg-background/50 z-10 pl-12">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">↳</span>
+                            <span className="text-sm">{subRow.subcategoryName}</span>
+                          </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {data.actual > 0 ? data.actual.toFixed(2) : (data.planned > 0 ? '0.00' : '-')}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {(data.planned > 0 || data.actual > 0) ? getVarianceBadge(data.variance, data.planned, data.actual) : '-'}
-                        </TableCell>
-                      </Fragment>
-                    );
-                  })}
-                </TableRow>
-              ))}
+                        {months.map(monthKey => {
+                          const data = subRow.monthlyData[monthKey] || { planned: 0, actual: 0, variance: 0 };
+                          
+                          return (
+                            <Fragment key={monthKey}>
+                              <TableCell className="text-right border-l font-mono text-sm">
+                                {data.planned > 0 ? data.planned.toFixed(2) : (data.actual > 0 ? '0.00' : '-')}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm">
+                                {data.actual > 0 ? data.actual.toFixed(2) : (data.planned > 0 ? '0.00' : '-')}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {(data.planned > 0 || data.actual > 0) ? getVarianceBadge(data.variance, data.planned, data.actual) : '-'}
+                              </TableCell>
+                            </Fragment>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
