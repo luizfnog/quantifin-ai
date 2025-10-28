@@ -36,6 +36,7 @@ export interface ParsedTransaction {
   amount: number;
   category?: string;
   subcategory?: string;
+  lineNumber: number; // Track line number for error reporting
 }
 
 const detectDelimiter = (line: string): string => {
@@ -64,18 +65,24 @@ const parseDate = (dateStr: string): string => {
 
 const parseAmount = (amountStr: string): number => {
   const raw = amountStr.trim();
+  
   // Handle European formats: remove thousand separators and normalize decimal to dot
   let normalized = raw;
   const hasComma = raw.includes(',');
   const hasDot = raw.includes('.');
+  
   if (hasComma && hasDot) {
     // Assume dot is thousands and comma is decimal: 2.555,18 -> 2555.18
-    normalized = raw.replace(/\./g, '').replace(/,/g, '.');
+    normalized = raw.replace(/\./g, '').replace(',', '.');
   } else if (hasComma) {
-    normalized = raw.replace(/,/g, '.');
+    // Only comma, treat as decimal: 250,00 -> 250.00
+    normalized = raw.replace(',', '.');
   }
+  // else: only dot or no separator, use as is
+  
   // Remove any non-numeric characters except minus and dot
   normalized = normalized.replace(/[^0-9.-]/g, '');
+  
   const amount = parseFloat(normalized);
   if (isNaN(amount)) {
     throw new Error(`Valor inválido: ${amountStr}`);
@@ -115,8 +122,9 @@ export const parseCSVFile = (content: string): ParsedTransaction[] => {
         date: parseDate(values[0]),
         description: values[1],
         amount: parseAmount(values[2]),
-        category: values[3] || undefined,
-        subcategory: values[4] || undefined
+        category: values[3]?.trim() || undefined,
+        subcategory: values[4]?.trim() || undefined,
+        lineNumber: lineNumber
       };
       
       transactions.push(transaction);

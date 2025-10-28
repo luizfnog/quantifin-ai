@@ -73,101 +73,74 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
       
+      // Fetch all existing categories
       const { data: categories } = await supabase
         .from('categories')
         .select('*')
         .eq('user_id', user.id);
       
       const categoryMap = new Map(
-        categories?.map(cat => [cat.name.toLowerCase(), cat]) || []
+        categories?.map(cat => [cat.name.toLowerCase().trim(), cat]) || []
       );
       
-      // Create missing categories and subcategories
-      const newCategories: { name: string; isSubcategory: boolean; parentName?: string }[] = [];
+      // Collect unique categories and subcategories from CSV
+      const uniqueParentCategories = new Set<string>();
+      const uniqueSubcategories = new Map<string, string>(); // subcategory -> parent category
       
       for (const t of transactions) {
-        if (t.category && t.category.trim() && !categoryMap.has(t.category.toLowerCase().trim())) {
-          const categoryExists = newCategories.find(nc => nc.name.toLowerCase() === t.category!.toLowerCase().trim());
-          if (!categoryExists) {
-            newCategories.push({ name: t.category.trim(), isSubcategory: false });
+        if (t.category?.trim()) {
+          const categoryName = t.category.trim();
+          const categoryKey = categoryName.toLowerCase();
+          
+          if (!categoryMap.has(categoryKey)) {
+            uniqueParentCategories.add(categoryName);
           }
-        }
-      }
-      
-      // Insert new parent categories
-      if (newCategories.filter(c => !c.isSubcategory).length > 0) {
-        const { data: newCats, error: catError } = await supabase
-          .from('categories')
-          .insert(
-            newCategories
-              .filter(c => !c.isSubcategory)
-              .map(c => ({
-                user_id: user.id,
-                name: c.name,
-                color: '#6b7280',
-                icon: '📦',
-                parent_id: null
-              }))
-          )
-          .select();
-        
-        if (catError) throw catError;
-        
-        // Update categoryMap with new categories
-        newCats?.forEach(cat => categoryMap.set(cat.name.toLowerCase().trim(), cat));
-      }
-      
-      // Now handle subcategories
-      const newSubcategories: { name: string; parentId: string }[] = [];
-      
-      for (const t of transactions) {
-        if (t.subcategory && t.subcategory.trim()) {
-          const parentCategory = t.category ? categoryMap.get(t.category.toLowerCase().trim()) : null;
-          if (parentCategory) {
-            const subcatExists = categories?.find(c => 
-              c.name.toLowerCase().trim() === t.subcategory?.toLowerCase().trim() && 
-              c.parent_id === parentCategory.id
-            );
+          
+          if (t.subcategory?.trim()) {
+            const subcategoryName = t.subcategory.trim();
+            const subcategoryKey = `${categoryKey}::${subcategoryName.toLowerCase()}`;
             
-            if (!subcatExists) {
-              const alreadyAdded = newSubcategories.find(ns => 
-                ns.name.toLowerCase() === t.subcategory!.toLowerCase().trim() && 
-                ns.parentId === parentCategory.id
-              );
-              if (!alreadyAdded) {
-                newSubcategories.push({ 
-                  name: t.subcategory.trim(), 
-                  parentId: parentCategory.id 
-                });
-              }
+            if (!uniqueSubcategories.has(subcategoryKey)) {
+              uniqueSubcategories.set(subcategoryKey, categoryName);
             }
           }
         }
       }
       
-      // Insert new subcategories
-      if (newSubcategories.length > 0) {
-        const uniqueSubcats = Array.from(
-          new Map(newSubcategories.map(s => [`${s.parentId}-${s.name}`, s])).values()
-        );
-        
-        const { data: newSubs, error: subError } = await supabase
-          .from('categories')
-          .insert(
-            uniqueSubcats.map(s => ({
-              user_id: user.id,
-              name: s.name,
-              color: '#6b7280',
-              icon: '📌',
-              parent_id: s.parentId
-            }))
-          )
-          .select();
-        
-        if (subError) throw subError;
+      // Insert or update parent categories using upsert
+      if (uniqueParentCategories.size > 0) {
+        try {
+          const { data: newCats, error: catError } = await supabase
+            .from('categories')
+            .upsert(
+              Array.from(uniqueParentCategories).map(name => ({
+                user_id: user.id,
+                name: name,
+                color: '#6b7280',
+                icon: '📦',
+                parent_id: null
+              })),
+              { 
+                onConflict: 'user_id,name',
+                ignoreDuplicates: true 
+              }
+            )
+            .select();
+          
+          if (catError) {
+            console.error('Erro ao criar categorias:', catError);
+            throw new Error(`Erro ao criar categorias: ${catError.message}`);
+          }
+          
+          // Update categoryMap with new categories
+          newCats?.forEach(cat => categoryMap.set(cat.name.toLowerCase().trim(), cat));
+        } catch (error) {
+          console.error('Erro ao inserir categorias pai:', error);
+          throw error;
+        }
       }
       
-      // Refetch all categories after insertions
+      // Refetch all categories to ensure we have the latest data
       const { data: updatedCategories } = await supabase
         .from('categories')
         .select('*')
@@ -177,37 +150,155 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
         updatedCategories?.map(cat => [cat.name.toLowerCase().trim(), cat]) || []
       );
       
-      const transactionsToInsert = transactions.map(t => {
-        const category = t.category ? updatedCategoryMap.get(t.category.toLowerCase().trim()) : null;
-        const subcategory = t.subcategory ? 
-          updatedCategories?.find(c => 
-            c.name.toLowerCase().trim() === t.subcategory?.toLowerCase().trim() && 
-            c.parent_id === category?.id
-          ) : null;
+      // Now handle subcategories
+      if (uniqueSubcategories.size > 0) {
+        const subcategoriesToInsert = [];
         
-        return {
-          user_id: user.id,
-          date: t.date,
-          description: t.description,
-          amount: Math.abs(t.amount),
-          type: t.amount < 0 ? 'expense' : 'income',
-          category_id: category?.id || null,
-          subcategory_id: subcategory?.id || null,
-          ai_confidence: category ? 100 : 85
-        };
-      });
+        for (const [key, parentCategoryName] of uniqueSubcategories.entries()) {
+          const subcategoryName = key.split('::')[1];
+          const parentCategory = updatedCategoryMap.get(parentCategoryName.toLowerCase().trim());
+          
+          if (parentCategory) {
+            // Check if subcategory already exists
+            const subcatExists = updatedCategories?.find(c => 
+              c.name.toLowerCase().trim() === subcategoryName && 
+              c.parent_id === parentCategory.id
+            );
+            
+            if (!subcatExists) {
+              subcategoriesToInsert.push({
+                user_id: user.id,
+                name: key.split('::')[1].split('').map((c, i) => i === 0 ? c.toUpperCase() : c).join('').replace(/[a-z]+/g, match => match.charAt(0).toUpperCase() + match.slice(1).toLowerCase()),
+                color: parentCategory.color,
+                icon: '📌',
+                parent_id: parentCategory.id
+              });
+            }
+          }
+        }
+        
+        if (subcategoriesToInsert.length > 0) {
+          try {
+            // Get the actual subcategory name from the original map
+            const subcatsWithCorrectNames = Array.from(uniqueSubcategories.entries()).map(([key, parentName]) => {
+              const subcategoryName = key.split('::')[1];
+              const parentCategory = updatedCategoryMap.get(parentName.toLowerCase().trim());
+              
+              if (!parentCategory) return null;
+              
+              // Check if already exists
+              const exists = updatedCategories?.find(c => 
+                c.name.toLowerCase().trim() === subcategoryName && 
+                c.parent_id === parentCategory.id
+              );
+              
+              if (exists) return null;
+              
+              // Find original casing from transactions
+              const originalName = transactions.find(t => 
+                t.subcategory?.toLowerCase().trim() === subcategoryName
+              )?.subcategory?.trim();
+              
+              return {
+                user_id: user.id,
+                name: originalName || subcategoryName,
+                color: parentCategory.color,
+                icon: '📌',
+                parent_id: parentCategory.id
+              };
+            }).filter(Boolean);
+            
+            if (subcatsWithCorrectNames.length > 0) {
+              const { error: subError } = await supabase
+                .from('categories')
+                .upsert(subcatsWithCorrectNames, { 
+                  onConflict: 'user_id,name',
+                  ignoreDuplicates: true 
+                })
+                .select();
+              
+              if (subError) {
+                console.error('Erro ao criar subcategorias:', subError);
+                throw new Error(`Erro ao criar subcategorias: ${subError.message}`);
+              }
+            }
+          } catch (error) {
+            console.error('Erro ao inserir subcategorias:', error);
+            throw error;
+          }
+        }
+      }
       
-      const { error } = await supabase
+      // Refetch all categories one more time before inserting transactions
+      const { data: finalCategories } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      const finalCategoryMap = new Map(
+        finalCategories?.map(cat => [cat.name.toLowerCase().trim(), cat]) || []
+      );
+      
+      // Prepare transactions for insertion with error tracking
+      const transactionsToInsert = [];
+      const errors: string[] = [];
+      
+      for (const t of transactions) {
+        try {
+          const category = t.category ? finalCategoryMap.get(t.category.toLowerCase().trim()) : null;
+          let subcategory = null;
+          
+          if (t.subcategory && category) {
+            subcategory = finalCategories?.find(c => 
+              c.name.toLowerCase().trim() === t.subcategory?.toLowerCase().trim() && 
+              c.parent_id === category.id
+            ) || null;
+          }
+          
+          transactionsToInsert.push({
+            user_id: user.id,
+            date: t.date,
+            description: t.description,
+            amount: Math.abs(t.amount),
+            type: t.amount < 0 ? 'expense' : 'income',
+            category_id: category?.id || null,
+            subcategory_id: subcategory?.id || null,
+            ai_confidence: category ? 100 : 85
+          });
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+          errors.push(`Linha ${t.lineNumber}: ${errorMsg}`);
+        }
+      }
+      
+      if (errors.length > 0 && transactionsToInsert.length === 0) {
+        throw new Error(`Erros encontrados:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n... e mais ${errors.length - 5} erros` : ''}`);
+      }
+      
+      // Insert transactions
+      const { error: transError } = await supabase
         .from('transactions')
         .insert(transactionsToInsert);
       
-      if (error) throw error;
+      if (transError) {
+        console.error('Erro ao inserir transações:', transError);
+        throw new Error(`Erro ao inserir transações: ${transError.message}`);
+      }
       
       setIsUploading(false);
+      
+      const successMsg = errors.length > 0 
+        ? `${transactionsToInsert.length} transações importadas com ${errors.length} avisos.`
+        : `${transactionsToInsert.length} transações importadas com sucesso!`;
+      
       toast({
         title: "Upload Concluído",
-        description: `${transactions.length} transações foram importadas com sucesso!`,
+        description: successMsg,
       });
+      
+      if (errors.length > 0) {
+        console.warn('Avisos durante importação:', errors);
+      }
       
       // Force refresh to update Dashboard
       setTimeout(() => {
