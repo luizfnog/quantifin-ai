@@ -70,17 +70,33 @@ const Transactions = () => {
 
   const fetchTransactions = async () => {
     try {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .limit(50000)
-        .order("date", { ascending: false });
+      let allData: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
+      // Fetch in batches to avoid Supabase default limit
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .range(from, from + batchSize - 1)
+          .order("date", { ascending: false });
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
 
       // Buscar categorias separadamente
-      const categoryIds = [...new Set(data?.map(t => t.category_id).filter(Boolean))];
-      const subcategoryIds = [...new Set(data?.map(t => t.subcategory_id).filter(Boolean))];
+      const categoryIds = [...new Set(allData?.map(t => t.category_id).filter(Boolean))];
+      const subcategoryIds = [...new Set(allData?.map(t => t.subcategory_id).filter(Boolean))];
       
       const { data: categoriesData } = await supabase
         .from("categories")
@@ -89,7 +105,7 @@ const Transactions = () => {
 
       const categoryMap = new Map(categoriesData?.map(c => [c.id, c]));
 
-      const enrichedData = data?.map(t => ({
+      const enrichedData = allData?.map(t => ({
         ...t,
         categories: t.category_id ? categoryMap.get(t.category_id) : null,
         subcategories: t.subcategory_id ? categoryMap.get(t.subcategory_id) : null,
