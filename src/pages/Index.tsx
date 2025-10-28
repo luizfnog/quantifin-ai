@@ -1,101 +1,181 @@
-import { useState } from "react";
-import { Upload, TrendingUp, TrendingDown, DollarSign, PieChart, Calendar } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Upload, TrendingUp, DollarSign, PieChart, Calendar as CalendarIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import KPICard from "@/components/dashboard/KPICard";
 import TransactionList from "@/components/dashboard/TransactionList";
 import CategoryChart from "@/components/dashboard/CategoryChart";
 import UploadModal from "@/components/dashboard/UploadModal";
 import BudgetStatusAlert from "@/components/dashboard/BudgetStatusAlert";
-
 const Index = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<Date>(startOfMonth(new Date()));
 
-  // Mock data - será substituído por dados reais do backend
-  const kpiData = {
-    healthScore: 78,
-    balance: 4250.80,
-    balanceChange: 12.5,
-    projection30Days: 3890.50,
-    fixedCostRate: 45,
-    topExpenses: [
-      { 
-        category: "Habitação", 
-        amount: 1200, 
-        percentage: 35,
-        subcategories: [
-          { category: "Aluguel", amount: 800, percentage: 23 },
-          { category: "Conta de Luz", amount: 200, percentage: 6 },
-          { category: "Internet", amount: 200, percentage: 6 }
-        ]
-      },
-      { 
-        category: "Alimentação", 
-        amount: 800, 
-        percentage: 23,
-        subcategories: [
-          { category: "Supermercado", amount: 500, percentage: 14 },
-          { category: "Restaurante", amount: 300, percentage: 9 }
-        ]
-      },
-      { 
-        category: "Transporte", 
-        amount: 450, 
-        percentage: 13,
-        subcategories: [
-          { category: "Combustível", amount: 300, percentage: 9 },
-          { category: "Transporte Público", amount: 150, percentage: 4 }
-        ]
-      },
-    ]
-  };
+  const startDate = format(selectedMonth, "yyyy-MM-01");
+  const endDate = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
+
+  // Fetch expenses and incomes for the selected month
+  const { data: monthExpenses } = useQuery({
+    queryKey: ["dashboard-expenses", startDate, endDate],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("transactions")
+        .select(`*, category:categories!transactions_category_id_fkey(id, name, color, icon), subcategory:categories!transactions_subcategory_id_fkey(id, name, color, icon)`) 
+        .eq("user_id", user.id)
+        .eq("type", "expense")
+        .gte("date", startDate)
+        .lte("date", endDate);
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const { data: monthIncomes } = useQuery({
+    queryKey: ["dashboard-incomes", startDate, endDate],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("type", "income")
+        .gte("date", startDate)
+        .lte("date", endDate);
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const { data: recentTransactions } = useQuery({
+    queryKey: ["dashboard-recent", startDate, endDate],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("transactions")
+        .select(`*, category:categories!transactions_category_id_fkey(id, name, color, icon), subcategory:categories!transactions_subcategory_id_fkey(id, name, color, icon)`) 
+        .eq("user_id", user.id)
+        .gte("date", startDate)
+        .lte("date", endDate)
+        .order("date", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const kpis = useMemo(() => {
+    const totalExpense = (monthExpenses || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+    const totalIncome = (monthIncomes || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+    const balance = totalIncome - totalExpense;
+    // Simple heuristic for health score
+    const healthScore = Math.max(0, Math.min(100, Math.round(70 + (balance >= 0 ? 10 : -10))));
+    return { totalExpense, totalIncome, balance, healthScore };
+  }, [monthExpenses, monthIncomes]);
+
+  type CatAgg = { category: string; amount: number; percentage: number; subcategories?: { category: string; amount: number; percentage: number }[] };
+  const topExpenses: CatAgg[] = useMemo(() => {
+    const expenses = monthExpenses || [];
+    const byCat = new Map<string, { amount: number; subs: Map<string, number> }>();
+    for (const t of expenses) {
+      const catName = t.category?.name || "Sem Categoria";
+      const subName = t.subcategory?.name || undefined;
+      if (!byCat.has(catName)) byCat.set(catName, { amount: 0, subs: new Map() });
+      const entry = byCat.get(catName)!;
+      entry.amount += Number(t.amount);
+      if (subName) entry.subs.set(subName, (entry.subs.get(subName) || 0) + Number(t.amount));
+    }
+    const total = Array.from(byCat.values()).reduce((s, v) => s + v.amount, 0) || 1;
+    const arr: CatAgg[] = Array.from(byCat.entries()).map(([name, v]) => ({
+      category: name,
+      amount: v.amount,
+      percentage: (v.amount / total) * 100,
+      subcategories: Array.from(v.subs.entries()).map(([sname, sval]) => ({
+        category: sname,
+        amount: sval,
+        percentage: (sval / total) * 100,
+      }))
+    }));
+    // Sort by amount desc and take top 5
+    return arr.sort((a, b) => b.amount - a.amount).slice(0, 5);
+  }, [monthExpenses]);
 
   return (
     <div className="bg-background">
       <DashboardHeader onUpload={() => setShowUploadModal(true)} />
-      
       <main className="container mx-auto px-4 py-8 space-y-8">
+        <div className="flex items-center justify-between">
+          <div />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[240px] justify-start">
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                {format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={selectedMonth}
+                onSelect={(date) => date && setSelectedMonth(startOfMonth(date))}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
         {/* KPIs Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <KPICard
             title="Saúde Financeira"
-            value={`${kpiData.healthScore}/100`}
+            value={`${kpis.healthScore}/100`}
             icon={<TrendingUp className="w-5 h-5" />}
             variant="success"
-            trend={kpiData.healthScore > 70 ? "up" : "down"}
-            trendValue={`${kpiData.healthScore > 70 ? '+' : ''}${kpiData.healthScore - 70} pontos`}
-            description="Indicador geral da sua saúde financeira baseado em múltiplos fatores como balanço, economia e compromissos financeiros."
+            trend={kpis.healthScore >= 70 ? "up" : "down"}
+            trendValue={kpis.healthScore >= 70 ? "+Saudável" : "Atenção"}
+            description="Indicador geral com base no balanço do mês selecionado."
           />
-          
+
           <KPICard
             title="Balanço Mensal"
-            value={`R$ ${kpiData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            value={`R$ ${kpis.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
             icon={<DollarSign className="w-5 h-5" />}
             variant="primary"
-            trend={kpiData.balanceChange > 0 ? "up" : "down"}
-            trendValue={`${kpiData.balanceChange > 0 ? '+' : ''}${kpiData.balanceChange}%`}
-            description="Diferença entre suas receitas e despesas no mês atual. Valor positivo indica superávit, negativo indica déficit."
+            trend={kpis.balance >= 0 ? "up" : "down"}
+            trendValue={kpis.balance >= 0 ? "Superávit" : "Déficit"}
+            description="Receitas menos despesas no mês selecionado."
           />
-          
+
           <KPICard
-            title="Projeção 30 Dias"
-            value={`R$ ${kpiData.projection30Days.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-            icon={<Calendar className="w-5 h-5" />}
-            variant="accent"
-            trend={kpiData.projection30Days > kpiData.balance ? "up" : "down"}
-            trendValue={`${((kpiData.projection30Days - kpiData.balance) / kpiData.balance * 100).toFixed(1)}%`}
-            description="Projeção do saldo final com base no histórico de receitas e despesas. Ajuda a planejar os próximos dias do mês."
-          />
-          
-          <KPICard
-            title="Taxa Esforço Fixo"
-            value={`${kpiData.fixedCostRate}%`}
+            title="Receitas"
+            value={`R$ ${kpis.totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
             icon={<PieChart className="w-5 h-5" />}
-            variant={kpiData.fixedCostRate < 50 ? "success" : "warning"}
-            trend={kpiData.fixedCostRate < 50 ? "up" : "down"}
-            trendValue={kpiData.fixedCostRate < 50 ? "Saudável" : "Atenção"}
-            description="Porcentagem da sua receita bruta comprometida com custos fixos mensais. Recomendado manter abaixo de 50%."
+            variant="accent"
+            trend="up"
+            trendValue="Acumulado do mês"
+            description="Total de receitas no período."
+          />
+
+          <KPICard
+            title="Despesas"
+            value={`R$ ${kpis.totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            icon={<PieChart className="w-5 h-5" />}
+            variant="warning"
+            trend="down"
+            trendValue="Acumulado do mês"
+            description="Total de despesas no período."
           />
         </div>
 
@@ -105,11 +185,10 @@ const Index = () => {
         {/* Charts and Transactions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
-            <CategoryChart data={kpiData.topExpenses} />
+            <CategoryChart data={topExpenses} />
           </div>
-          
           <div className="lg:col-span-2">
-            <TransactionList />
+            <TransactionList transactions={recentTransactions || []} />
           </div>
         </div>
 

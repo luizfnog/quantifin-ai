@@ -3,6 +3,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check, AlertCircle } from "lucide-react";
 
+interface TransactionListProps {
+  transactions?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    date: string;
+    type: string;
+    category?: { name: string } | null;
+    ai_confidence?: number | null;
+  }>;
+}
 const mockTransactions = [
   {
     id: 1,
@@ -51,24 +62,36 @@ const mockTransactions = [
   },
 ];
 
-const TransactionList = () => {
+const TransactionList = ({ transactions }: TransactionListProps) => {
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 80) return "success";
     if (confidence >= 60) return "warning";
     return "destructive";
   };
 
+  const items = (transactions && transactions.length > 0)
+    ? transactions.map((t) => ({
+        id: t.id,
+        description: t.description,
+        amount: t.type === 'income' ? Number(t.amount) : -Number(t.amount),
+        date: t.date,
+        category: t.category?.name || "Sem Categoria",
+        confidence: t.ai_confidence ?? 0,
+        status: (t.ai_confidence ?? 0) >= 80 ? "approved" : "pending",
+      }))
+    : mockTransactions;
+
   return (
     <Card className="p-6 shadow-md border-none bg-gradient-card">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold">Transações Recentes</h3>
         <Badge variant="outline" className="font-semibold">
-          {mockTransactions.filter(t => t.status === "pending").length} pendentes
+          {items.filter(t => t.status === "pending").length} pendentes
         </Badge>
       </div>
 
       <div className="space-y-3">
-        {mockTransactions.map((transaction) => (
+        {items.map((transaction) => (
           <div
             key={transaction.id}
             className="flex items-center justify-between p-4 rounded-lg bg-card hover:shadow-md transition-all border border-border/50"
