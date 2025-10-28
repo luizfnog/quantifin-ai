@@ -65,7 +65,8 @@ const TransactionFiltersComponent = ({ filters, onFiltersChange }: TransactionFi
   };
 
   const handleFilterChange = (key: keyof TransactionFilters, value: string) => {
-    const newFilters = { ...filters, [key]: value };
+    const actualValue = value === "all" ? "" : value;
+    const newFilters = { ...filters, [key]: actualValue };
     if (key === "categoryId") {
       newFilters.subcategoryId = "";
     }
@@ -164,14 +165,14 @@ const TransactionFiltersComponent = ({ filters, onFiltersChange }: TransactionFi
           <div>
             <Label htmlFor="category">Categoria</Label>
             <Select
-              value={filters.categoryId}
+              value={filters.categoryId || "all"}
               onValueChange={(value) => handleFilterChange("categoryId", value)}
             >
               <SelectTrigger id="category">
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.icon} {cat.name}
@@ -184,7 +185,7 @@ const TransactionFiltersComponent = ({ filters, onFiltersChange }: TransactionFi
           <div>
             <Label htmlFor="subcategory">Subcategoria</Label>
             <Select
-              value={filters.subcategoryId}
+              value={filters.subcategoryId || "all"}
               onValueChange={(value) => handleFilterChange("subcategoryId", value)}
               disabled={!filters.categoryId}
             >
@@ -192,7 +193,7 @@ const TransactionFiltersComponent = ({ filters, onFiltersChange }: TransactionFi
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
                 {subcategories.map((subcat) => (
                   <SelectItem key={subcat.id} value={subcat.id}>
                     {subcat.icon} {subcat.name}
