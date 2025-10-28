@@ -86,8 +86,11 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       const newCategories: { name: string; isSubcategory: boolean; parentName?: string }[] = [];
       
       for (const t of transactions) {
-        if (t.category && !categoryMap.has(t.category.toLowerCase())) {
-          newCategories.push({ name: t.category, isSubcategory: false });
+        if (t.category && t.category.trim() && !categoryMap.has(t.category.toLowerCase().trim())) {
+          const categoryExists = newCategories.find(nc => nc.name.toLowerCase() === t.category!.toLowerCase().trim());
+          if (!categoryExists) {
+            newCategories.push({ name: t.category.trim(), isSubcategory: false });
+          }
         }
       }
       
@@ -111,26 +114,32 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
         if (catError) throw catError;
         
         // Update categoryMap with new categories
-        newCats?.forEach(cat => categoryMap.set(cat.name.toLowerCase(), cat));
+        newCats?.forEach(cat => categoryMap.set(cat.name.toLowerCase().trim(), cat));
       }
       
       // Now handle subcategories
       const newSubcategories: { name: string; parentId: string }[] = [];
       
       for (const t of transactions) {
-        if (t.subcategory) {
-          const parentCategory = t.category ? categoryMap.get(t.category.toLowerCase()) : null;
+        if (t.subcategory && t.subcategory.trim()) {
+          const parentCategory = t.category ? categoryMap.get(t.category.toLowerCase().trim()) : null;
           if (parentCategory) {
             const subcatExists = categories?.find(c => 
-              c.name.toLowerCase() === t.subcategory?.toLowerCase() && 
+              c.name.toLowerCase().trim() === t.subcategory?.toLowerCase().trim() && 
               c.parent_id === parentCategory.id
             );
             
             if (!subcatExists) {
-              newSubcategories.push({ 
-                name: t.subcategory, 
-                parentId: parentCategory.id 
-              });
+              const alreadyAdded = newSubcategories.find(ns => 
+                ns.name.toLowerCase() === t.subcategory!.toLowerCase().trim() && 
+                ns.parentId === parentCategory.id
+              );
+              if (!alreadyAdded) {
+                newSubcategories.push({ 
+                  name: t.subcategory.trim(), 
+                  parentId: parentCategory.id 
+                });
+              }
             }
           }
         }
@@ -165,14 +174,14 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
         .eq('user_id', user.id);
       
       const updatedCategoryMap = new Map(
-        updatedCategories?.map(cat => [cat.name.toLowerCase(), cat]) || []
+        updatedCategories?.map(cat => [cat.name.toLowerCase().trim(), cat]) || []
       );
       
       const transactionsToInsert = transactions.map(t => {
-        const category = t.category ? updatedCategoryMap.get(t.category.toLowerCase()) : null;
+        const category = t.category ? updatedCategoryMap.get(t.category.toLowerCase().trim()) : null;
         const subcategory = t.subcategory ? 
           updatedCategories?.find(c => 
-            c.name.toLowerCase() === t.subcategory?.toLowerCase() && 
+            c.name.toLowerCase().trim() === t.subcategory?.toLowerCase().trim() && 
             c.parent_id === category?.id
           ) : null;
         
@@ -180,11 +189,11 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
           user_id: user.id,
           date: t.date,
           description: t.description,
-          amount: t.amount,
+          amount: Math.abs(t.amount),
           type: t.amount < 0 ? 'expense' : 'income',
           category_id: category?.id || null,
           subcategory_id: subcategory?.id || null,
-          ai_confidence: category ? 100 : null
+          ai_confidence: category ? 100 : 85
         };
       });
       
@@ -209,9 +218,10 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
     } catch (error) {
       console.error('Erro ao processar arquivo:', error);
       setIsUploading(false);
+      const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro ao processar o arquivo. Verifique o formato.";
       toast({
         title: "Erro no Upload",
-        description: "Ocorreu um erro ao processar o arquivo. Verifique o formato.",
+        description: errorMessage,
         variant: "destructive"
       });
     }

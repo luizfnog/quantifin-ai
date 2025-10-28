@@ -63,8 +63,8 @@ const parseDate = (dateStr: string): string => {
 };
 
 const parseAmount = (amountStr: string): number => {
-  // Replace comma with dot for decimal separator
-  const normalized = amountStr.replace(',', '.');
+  // Remove any spaces and replace comma with dot for decimal separator
+  const normalized = amountStr.trim().replace(/,/g, '.');
   const amount = parseFloat(normalized);
   if (isNaN(amount)) {
     throw new Error(`Valor inválido: ${amountStr}`);
