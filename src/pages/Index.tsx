@@ -124,24 +124,32 @@ const Index = () => {
 
     // Calculate safety margin (average monthly income - average monthly fixed expenses)
     const incomesByMonth = new Map<string, number>();
-    const expensesByMonth = new Map<string, number>();
+    const fixedExpensesByMonth = new Map<string, number>();
+    const totalExpensesByMonth = new Map<string, number>();
     
     (allTransactions || []).forEach((t: any) => {
       const monthKey = t.date.substring(0, 7); // YYYY-MM
       if (t.type === "income") {
         incomesByMonth.set(monthKey, (incomesByMonth.get(monthKey) || 0) + Number(t.amount));
       } else if (t.type === "expense") {
-        expensesByMonth.set(monthKey, (expensesByMonth.get(monthKey) || 0) + Number(t.amount));
+        totalExpensesByMonth.set(monthKey, (totalExpensesByMonth.get(monthKey) || 0) + Number(t.amount));
+        // Only count recurring expenses as fixed
+        if (t.is_recurring === true) {
+          fixedExpensesByMonth.set(monthKey, (fixedExpensesByMonth.get(monthKey) || 0) + Number(t.amount));
+        }
       }
     });
 
     const avgMonthlyIncome = incomesByMonth.size > 0 
       ? Array.from(incomesByMonth.values()).reduce((a, b) => a + b, 0) / incomesByMonth.size 
       : 0;
-    const avgMonthlyExpense = expensesByMonth.size > 0
-      ? Array.from(expensesByMonth.values()).reduce((a, b) => a + b, 0) / expensesByMonth.size
+    const avgMonthlyFixedExpense = fixedExpensesByMonth.size > 0
+      ? Array.from(fixedExpensesByMonth.values()).reduce((a, b) => a + b, 0) / fixedExpensesByMonth.size
       : 0;
-    const safetyMargin = avgMonthlyIncome - avgMonthlyExpense;
+    const avgMonthlyExpense = totalExpensesByMonth.size > 0
+      ? Array.from(totalExpensesByMonth.values()).reduce((a, b) => a + b, 0) / totalExpensesByMonth.size
+      : 0;
+    const safetyMargin = avgMonthlyIncome - avgMonthlyFixedExpense;
 
     // Calculate income diversification index (number of unique income categories)
     const incomeCategories = new Set(

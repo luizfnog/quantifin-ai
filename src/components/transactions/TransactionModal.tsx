@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
@@ -35,6 +36,7 @@ interface Transaction {
   type: "income" | "expense";
   category_id: string | null;
   subcategory_id: string | null;
+  is_recurring?: boolean | null;
 }
 
 interface TransactionModalProps {
@@ -50,6 +52,7 @@ const transactionSchema = z.object({
   type: z.enum(["income", "expense"]),
   category_id: z.string().nullable(),
   subcategory_id: z.string().nullable(),
+  is_recurring: z.boolean(),
 });
 
 const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps) => {
@@ -64,6 +67,7 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
     type: "expense" as "income" | "expense",
     category_id: "",
     subcategory_id: "",
+    is_recurring: false,
   });
 
   useEffect(() => {
@@ -77,6 +81,7 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
           type: transaction.type,
           category_id: transaction.category_id || "",
           subcategory_id: transaction.subcategory_id || "",
+          is_recurring: transaction.is_recurring || false,
         });
       } else {
         setFormData({
@@ -86,6 +91,7 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
           type: "expense",
           category_id: "",
           subcategory_id: "",
+          is_recurring: false,
         });
       }
     }
@@ -140,6 +146,7 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
         type: formData.type,
         category_id: formData.category_id || null,
         subcategory_id: formData.subcategory_id || null,
+        is_recurring: formData.is_recurring,
       });
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -160,6 +167,7 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
           type: validatedData.type,
           category_id: validatedData.category_id,
           subcategory_id: validatedData.subcategory_id,
+          is_recurring: validatedData.is_recurring,
           user_id: user.id,
         }]);
         if (error) throw error;
@@ -289,6 +297,24 @@ const TransactionModal = ({ open, onClose, transaction }: TransactionModalProps)
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {formData.type === "expense" && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="is_recurring"
+                checked={formData.is_recurring}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_recurring: checked as boolean })
+                }
+              />
+              <Label
+                htmlFor="is_recurring"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Despesa Fixa/Recorrente (ex: aluguel, contas mensais)
+              </Label>
             </div>
           )}
 
