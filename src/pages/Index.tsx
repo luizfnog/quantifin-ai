@@ -65,6 +65,7 @@ const Index = () => {
             variant="success"
             trend={kpiData.healthScore > 70 ? "up" : "down"}
             trendValue={`${kpiData.healthScore > 70 ? '+' : ''}${kpiData.healthScore - 70} pontos`}
+            description="Indicador geral da sua saúde financeira baseado em múltiplos fatores como balanço, economia e compromissos financeiros."
           />
           
           <KPICard
@@ -74,6 +75,7 @@ const Index = () => {
             variant="primary"
             trend={kpiData.balanceChange > 0 ? "up" : "down"}
             trendValue={`${kpiData.balanceChange > 0 ? '+' : ''}${kpiData.balanceChange}%`}
+            description="Diferença entre suas receitas e despesas no mês atual. Valor positivo indica superávit, negativo indica déficit."
           />
           
           <KPICard
@@ -83,6 +85,7 @@ const Index = () => {
             variant="accent"
             trend={kpiData.projection30Days > kpiData.balance ? "up" : "down"}
             trendValue={`${((kpiData.projection30Days - kpiData.balance) / kpiData.balance * 100).toFixed(1)}%`}
+            description="Projeção do saldo final com base no histórico de receitas e despesas. Ajuda a planejar os próximos dias do mês."
           />
           
           <KPICard
@@ -92,6 +95,7 @@ const Index = () => {
             variant={kpiData.fixedCostRate < 50 ? "success" : "warning"}
             trend={kpiData.fixedCostRate < 50 ? "up" : "down"}
             trendValue={kpiData.fixedCostRate < 50 ? "Saudável" : "Atenção"}
+            description="Porcentagem da sua receita bruta comprometida com custos fixos mensais. Recomendado manter abaixo de 50%."
           />
         </div>
 

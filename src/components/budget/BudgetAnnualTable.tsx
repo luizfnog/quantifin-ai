@@ -75,7 +75,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
 
     // Process budgets
     budgets.forEach(budget => {
-      const budgetDate = new Date(budget.month);
+      const budgetDate = new Date(budget.month + 'T00:00:00');
       if (budgetDate.getFullYear() !== parseInt(selectedYear)) return;
 
       const key = `${budget.category.id}-${budget.subcategory?.id || 'null'}`;
@@ -98,19 +98,33 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       row.monthlyData[monthKey].planned = budget.planned_amount;
     });
 
-    // Process transactions
+    // Process transactions - show even if no budget exists
     transactions.forEach(transaction => {
       if (transaction.type !== 'expense') return;
       
-      const transDate = new Date(transaction.date);
+      const transDate = new Date(transaction.date + 'T00:00:00');
       if (transDate.getFullYear() !== parseInt(selectedYear)) return;
 
       const key = `${transaction.category_id}-${transaction.subcategory_id || 'null'}`;
       const monthKey = format(transDate, 'yyyy-MM');
 
+      // Create entry even if no budget exists (14.2 - Show partial data)
       if (!subcategoryMap.has(key)) {
-        // If no budget exists for this subcategory, skip it in annual view
-        return;
+        // Try to get category/subcategory info from transaction
+        const category = budgets.find(b => b.category.id === transaction.category_id)?.category;
+        const subcategory = budgets.find(b => b.subcategory?.id === transaction.subcategory_id)?.subcategory;
+        
+        if (category) {
+          subcategoryMap.set(key, {
+            subcategoryId: transaction.subcategory_id || null,
+            subcategoryName: subcategory?.name || category.name,
+            categoryName: category.name,
+            categoryColor: category.color,
+            monthlyData: {},
+          });
+        } else {
+          return; // Skip if we can't find category info
+        }
       }
 
       const row = subcategoryMap.get(key)!;
@@ -136,8 +150,16 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
 
   const rows = processData();
 
-  const getVarianceBadge = (variance: number, planned: number) => {
-    if (planned === 0) return null;
+  const getVarianceBadge = (variance: number, planned: number, actual: number) => {
+    // Show variance even if planned is 0 (14.2 - Show partial data)
+    if (planned === 0 && actual === 0) return null;
+    if (planned === 0) {
+      return (
+        <Badge variant="outline" className="font-mono">
+          Sem Orçamento
+        </Badge>
+      );
+    }
     
     const percentOver = (variance / planned) * 100;
     
@@ -246,13 +268,13 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                     return (
                       <>
                         <TableCell key={`${month}-prev`} className="text-right border-l font-mono text-sm">
-                          {data.planned > 0 ? data.planned.toFixed(2) : '-'}
+                          {data.planned > 0 ? data.planned.toFixed(2) : (data.actual > 0 ? '0.00' : '-')}
                         </TableCell>
                         <TableCell key={`${month}-real`} className="text-right font-mono text-sm">
-                          {data.actual > 0 ? data.actual.toFixed(2) : '-'}
+                          {data.actual > 0 ? data.actual.toFixed(2) : (data.planned > 0 ? '0.00' : '-')}
                         </TableCell>
                         <TableCell key={`${month}-var`} className="text-center">
-                          {data.planned > 0 ? getVarianceBadge(data.variance, data.planned) : '-'}
+                          {(data.planned > 0 || data.actual > 0) ? getVarianceBadge(data.variance, data.planned, data.actual) : '-'}
                         </TableCell>
                       </>
                     );

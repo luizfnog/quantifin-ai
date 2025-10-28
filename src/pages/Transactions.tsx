@@ -146,6 +146,7 @@ const Transactions = () => {
               <TableHead>Data</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead>Categoria</TableHead>
+              <TableHead>Subcategoria</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead className="text-right">Valor</TableHead>
               <TableHead className="text-center">IA</TableHead>
@@ -155,7 +156,7 @@ const Transactions = () => {
           <TableBody>
             {transactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   Nenhuma transação encontrada. Adicione sua primeira transação!
                 </TableCell>
               </TableRow>
@@ -176,6 +177,15 @@ const Transactions = () => {
                       </Badge>
                     ) : (
                       <Badge variant="outline">Sem categoria</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {transaction.subcategories ? (
+                      <Badge variant="outline">
+                        {transaction.subcategories.icon} {transaction.subcategories.name}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
                     )}
                   </TableCell>
                   <TableCell>

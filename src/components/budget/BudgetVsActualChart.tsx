@@ -62,17 +62,37 @@ const BudgetVsActualChart = ({ budgets, transactions }: BudgetVsActualChartProps
     }
   });
 
-  // Process transactions
+  // Process transactions - show even if no budget exists (14.2)
   transactions.forEach(transaction => {
     const categoryId = transaction.category_id;
     if (!categoryId) return;
 
+    if (!categoryMap.has(categoryId) && transaction.category) {
+      // Create category entry even if no budget exists
+      categoryMap.set(categoryId, {
+        name: transaction.category.name,
+        planned: 0,
+        actual: 0,
+        color: transaction.category.color,
+        subcategories: new Map(),
+      });
+    }
+
     if (categoryMap.has(categoryId)) {
       const category = categoryMap.get(categoryId)!;
-      category.actual += Number(transaction.amount);
+      category.actual += Math.abs(Number(transaction.amount));
 
-      if (transaction.subcategory_id && category.subcategories.has(transaction.subcategory_id)) {
-        category.subcategories.get(transaction.subcategory_id)!.actual += Number(transaction.amount);
+      if (transaction.subcategory_id) {
+        if (!category.subcategories.has(transaction.subcategory_id) && transaction.subcategory) {
+          category.subcategories.set(transaction.subcategory_id, {
+            name: transaction.subcategory.name,
+            planned: 0,
+            actual: 0
+          });
+        }
+        if (category.subcategories.has(transaction.subcategory_id)) {
+          category.subcategories.get(transaction.subcategory_id)!.actual += Math.abs(Number(transaction.amount));
+        }
       }
     }
   });
@@ -86,6 +106,7 @@ const BudgetVsActualChart = ({ budgets, transactions }: BudgetVsActualChartProps
   }));
 
   const getBarColor = (actual: number, planned: number) => {
+    if (planned === 0) return "hsl(var(--muted))"; // Gray for no budget
     if (actual < planned * 0.8) return "hsl(var(--success))"; // Green
     if (actual < planned) return "hsl(var(--warning))"; // Yellow
     return "hsl(var(--destructive))"; // Red
@@ -95,7 +116,7 @@ const BudgetVsActualChart = ({ budgets, transactions }: BudgetVsActualChartProps
     if (!active || !payload || !payload.length) return null;
 
     const data = payload[0].payload;
-    const percentage = data.planned > 0 ? ((data.actual / data.planned) * 100).toFixed(1) : 0;
+    const percentage = data.planned > 0 ? ((data.actual / data.planned) * 100).toFixed(1) : 'N/A';
 
     return (
       <div className="bg-card border rounded-lg shadow-lg p-4 space-y-2">
@@ -103,17 +124,22 @@ const BudgetVsActualChart = ({ budgets, transactions }: BudgetVsActualChartProps
         <div className="space-y-1 text-xs">
           <p className="text-primary">Orçado: R$ {data.planned.toFixed(2)}</p>
           <p className="text-muted-foreground">Real: R$ {data.actual.toFixed(2)}</p>
-          <p className="font-semibold">Utilização: {percentage}%</p>
+          {data.planned > 0 && (
+            <p className="font-semibold">Utilização: {percentage}%</p>
+          )}
+          {data.planned === 0 && data.actual > 0 && (
+            <p className="text-warning font-semibold">Sem Orçamento Definido</p>
+          )}
         </div>
         
         {data.subcategories && data.subcategories.length > 0 && (
           <div className="mt-3 pt-2 border-t">
             <p className="text-xs font-semibold mb-1">Subcategorias:</p>
             {data.subcategories.map((sub: any, idx: number) => {
-              const subPercentage = sub.planned > 0 ? ((sub.actual / sub.planned) * 100).toFixed(0) : 0;
+              const subPercentage = sub.planned > 0 ? ((sub.actual / sub.planned) * 100).toFixed(0) : 'N/A';
               return (
                 <p key={idx} className="text-xs text-muted-foreground">
-                  {sub.name}: {subPercentage}%
+                  {sub.name}: {sub.planned > 0 ? `${subPercentage}%` : 'Sem orçamento'}
                 </p>
               );
             })}
@@ -129,7 +155,7 @@ const BudgetVsActualChart = ({ budgets, transactions }: BudgetVsActualChartProps
       
       {chartData.length === 0 ? (
         <div className="h-64 flex items-center justify-center text-muted-foreground">
-          <p>Nenhum orçamento cadastrado para este período</p>
+          <p>Nenhum orçamento ou transação cadastrado para este período</p>
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={400}>

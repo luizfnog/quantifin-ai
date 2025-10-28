@@ -98,7 +98,7 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
           type: t.amount < 0 ? 'expense' : 'income',
           category_id: category?.id || null,
           subcategory_id: subcategory?.id || null,
-          ai_confidence: t.category ? 100 : null
+          ai_confidence: category ? (t.category ? 100 : 85) : null
         };
       });
       
@@ -113,6 +113,12 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
         title: "Upload Concluído",
         description: `${transactions.length} transações foram importadas com sucesso!`,
       });
+      
+      // Force refresh to update Dashboard
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+      
       onClose();
     } catch (error) {
       console.error('Erro ao processar arquivo:', error);

@@ -1,6 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface KPICardProps {
   title: string;
@@ -9,9 +15,10 @@ interface KPICardProps {
   variant: "success" | "warning" | "primary" | "accent";
   trend?: "up" | "down";
   trendValue?: string;
+  description?: string;
 }
 
-const KPICard = ({ title, value, icon, variant, trend, trendValue }: KPICardProps) => {
+const KPICard = ({ title, value, icon, variant, trend, trendValue, description }: KPICardProps) => {
   const variantStyles = {
     success: "bg-gradient-success",
     warning: "bg-gradient-to-br from-warning to-warning/80",
@@ -19,7 +26,7 @@ const KPICard = ({ title, value, icon, variant, trend, trendValue }: KPICardProp
     accent: "bg-gradient-to-br from-accent to-accent/80",
   };
 
-  return (
+  const content = (
     <Card className="relative overflow-hidden border-none shadow-md hover:shadow-lg transition-all group">
       <div className="absolute inset-0 bg-gradient-card opacity-50" />
       
@@ -56,6 +63,23 @@ const KPICard = ({ title, value, icon, variant, trend, trendValue }: KPICardProp
       </div>
     </Card>
   );
+
+  if (description) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {content}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p>{description}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return content;
 };
 
 export default KPICard;
