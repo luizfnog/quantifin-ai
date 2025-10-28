@@ -114,7 +114,9 @@ const Budget = () => {
           subcategory:categories!transactions_subcategory_id_fkey(id, name, color, icon)
         `)
         .eq("user_id", user.id)
-        .eq("type", "expense");
+        .eq("type", "expense")
+        .order("date", { ascending: true })
+        .limit(10000);
 
       if (error) throw error;
       return data;
