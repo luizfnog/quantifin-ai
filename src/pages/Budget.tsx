@@ -174,7 +174,12 @@ const Budget = () => {
       />
 
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Detalhamento do Orçamento</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Detalhamento do Orçamento</h2>
+          <p className="text-sm text-muted-foreground">
+            {budgets && budgets.length > 0 ? `${budgets.length} orçamento(s) cadastrado(s)` : 'Nenhum orçamento'}
+          </p>
+        </div>
         <BudgetTable 
           budgets={budgets || []} 
           transactions={transactions || []}

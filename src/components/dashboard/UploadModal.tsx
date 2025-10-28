@@ -82,10 +82,96 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
         categories?.map(cat => [cat.name.toLowerCase(), cat]) || []
       );
       
+      // Create missing categories and subcategories
+      const newCategories: { name: string; isSubcategory: boolean; parentName?: string }[] = [];
+      
+      for (const t of transactions) {
+        if (t.category && !categoryMap.has(t.category.toLowerCase())) {
+          newCategories.push({ name: t.category, isSubcategory: false });
+        }
+      }
+      
+      // Insert new parent categories
+      if (newCategories.filter(c => !c.isSubcategory).length > 0) {
+        const { data: newCats, error: catError } = await supabase
+          .from('categories')
+          .insert(
+            newCategories
+              .filter(c => !c.isSubcategory)
+              .map(c => ({
+                user_id: user.id,
+                name: c.name,
+                color: '#6b7280',
+                icon: '📦',
+                parent_id: null
+              }))
+          )
+          .select();
+        
+        if (catError) throw catError;
+        
+        // Update categoryMap with new categories
+        newCats?.forEach(cat => categoryMap.set(cat.name.toLowerCase(), cat));
+      }
+      
+      // Now handle subcategories
+      const newSubcategories: { name: string; parentId: string }[] = [];
+      
+      for (const t of transactions) {
+        if (t.subcategory) {
+          const parentCategory = t.category ? categoryMap.get(t.category.toLowerCase()) : null;
+          if (parentCategory) {
+            const subcatExists = categories?.find(c => 
+              c.name.toLowerCase() === t.subcategory?.toLowerCase() && 
+              c.parent_id === parentCategory.id
+            );
+            
+            if (!subcatExists) {
+              newSubcategories.push({ 
+                name: t.subcategory, 
+                parentId: parentCategory.id 
+              });
+            }
+          }
+        }
+      }
+      
+      // Insert new subcategories
+      if (newSubcategories.length > 0) {
+        const uniqueSubcats = Array.from(
+          new Map(newSubcategories.map(s => [`${s.parentId}-${s.name}`, s])).values()
+        );
+        
+        const { data: newSubs, error: subError } = await supabase
+          .from('categories')
+          .insert(
+            uniqueSubcats.map(s => ({
+              user_id: user.id,
+              name: s.name,
+              color: '#6b7280',
+              icon: '📌',
+              parent_id: s.parentId
+            }))
+          )
+          .select();
+        
+        if (subError) throw subError;
+      }
+      
+      // Refetch all categories after insertions
+      const { data: updatedCategories } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      const updatedCategoryMap = new Map(
+        updatedCategories?.map(cat => [cat.name.toLowerCase(), cat]) || []
+      );
+      
       const transactionsToInsert = transactions.map(t => {
-        const category = t.category ? categoryMap.get(t.category.toLowerCase()) : null;
+        const category = t.category ? updatedCategoryMap.get(t.category.toLowerCase()) : null;
         const subcategory = t.subcategory ? 
-          categories?.find(c => 
+          updatedCategories?.find(c => 
             c.name.toLowerCase() === t.subcategory?.toLowerCase() && 
             c.parent_id === category?.id
           ) : null;
@@ -98,7 +184,7 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
           type: t.amount < 0 ? 'expense' : 'income',
           category_id: category?.id || null,
           subcategory_id: subcategory?.id || null,
-          ai_confidence: category ? (t.category ? 100 : 85) : null
+          ai_confidence: category ? 100 : null
         };
       });
       

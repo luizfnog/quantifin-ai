@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,7 +13,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import TransactionModal from "@/components/transactions/TransactionModal";
+import UploadModal from "@/components/dashboard/UploadModal";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface Transaction {
   id: string;
@@ -40,7 +50,11 @@ const Transactions = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
   const { toast } = useToast();
 
   const fetchTransactions = async () => {
@@ -94,6 +108,7 @@ const Transactions = () => {
         title: "Transação excluída",
         description: "A transação foi removida com sucesso.",
       });
+      setSelectedIds(new Set());
       fetchTransactions();
     } catch (error: any) {
       toast({
@@ -102,6 +117,51 @@ const Transactions = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    
+    try {
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .in("id", Array.from(selectedIds));
+      
+      if (error) throw error;
+
+      toast({
+        title: "Transações excluídas",
+        description: `${selectedIds.size} transação(ões) removida(s) com sucesso.`,
+      });
+      setSelectedIds(new Set());
+      fetchTransactions();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const pageTransactions = paginatedTransactions.map(t => t.id);
+      setSelectedIds(new Set(pageTransactions));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
   };
 
   const handleEdit = (transaction: Transaction) => {
@@ -114,6 +174,17 @@ const Transactions = () => {
     setEditingTransaction(null);
     fetchTransactions();
   };
+
+  const handleUploadModalClose = () => {
+    setUploadModalOpen(false);
+    fetchTransactions();
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(transactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTransactions = transactions.slice(startIndex, endIndex);
 
   if (loading) {
     return (
@@ -133,16 +204,34 @@ const Transactions = () => {
           <h1 className="text-3xl font-bold">Transações</h1>
           <p className="text-muted-foreground">Gerencie todos os seus lançamentos</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Transação
-        </Button>
+        <div className="flex gap-3">
+          {selectedIds.size > 0 && (
+            <Button variant="destructive" onClick={handleDeleteSelected}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Deletar Selecionadas ({selectedIds.size})
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setUploadModalOpen(true)}>
+            <Upload className="w-4 h-4 mr-2" />
+            Upload CSV
+          </Button>
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Transação
+          </Button>
+        </div>
       </div>
 
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={paginatedTransactions.length > 0 && paginatedTransactions.every(t => selectedIds.has(t.id))}
+                  onCheckedChange={handleSelectAll}
+                />
+              </TableHead>
               <TableHead>Data</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead>Categoria</TableHead>
@@ -154,15 +243,21 @@ const Transactions = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.length === 0 ? (
+            {paginatedTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   Nenhuma transação encontrada. Adicione sua primeira transação!
                 </TableCell>
               </TableRow>
             ) : (
-              transactions.map((transaction) => (
+              paginatedTransactions.map((transaction) => (
                 <TableRow key={transaction.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(transaction.id)}
+                      onCheckedChange={(checked) => handleSelectOne(transaction.id, checked as boolean)}
+                    />
+                  </TableCell>
                   <TableCell>
                     {new Date(transaction.date).toLocaleDateString("pt-BR")}
                   </TableCell>
@@ -239,10 +334,58 @@ const Transactions = () => {
         </Table>
       </Card>
 
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              
+              return (
+                <PaginationItem key={pageNum}>
+                  <PaginationLink
+                    onClick={() => setCurrentPage(pageNum)}
+                    isActive={currentPage === pageNum}
+                    className="cursor-pointer"
+                  >
+                    {pageNum}
+                  </PaginationLink>
+                </PaginationItem>
+              );
+            })}
+            <PaginationItem>
+              <PaginationNext 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+
       <TransactionModal
         open={modalOpen}
         onClose={handleModalClose}
         transaction={editingTransaction}
+      />
+
+      <UploadModal
+        open={uploadModalOpen}
+        onClose={handleUploadModalClose}
       />
     </div>
   );
