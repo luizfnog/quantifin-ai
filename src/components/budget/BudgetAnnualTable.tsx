@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, Fragment } from "react";
-import { format, startOfYear, endOfYear, eachMonthOfInterval } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Budget {
@@ -74,10 +74,11 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
     ])
   ).sort((a, b) => b - a);
 
-  // Generate months for selected year
-  const yearStart = startOfYear(new Date(parseInt(selectedYear), 0, 1));
-  const yearEnd = endOfYear(new Date(parseInt(selectedYear), 0, 1));
-  const months = eachMonthOfInterval({ start: yearStart, end: yearEnd });
+  // Generate months for selected year as strings (YYYY-MM)
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const monthNum = (i + 1).toString().padStart(2, '0');
+    return `${selectedYear}-${monthNum}`;
+  });
 
   // Process data by subcategory
   const processData = (): SubcategoryRow[] => {
@@ -242,24 +243,24 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                 <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]">
                   Categoria / Subcategoria
                 </TableHead>
-                {months.map(month => (
-                  <TableHead key={month.toISOString()} colSpan={3} className="text-center border-l">
-                    {format(month, 'MMM', { locale: ptBR })}
-                  </TableHead>
-                ))}
+                {months.map(monthKey => {
+                  const monthDate = new Date(`${monthKey}-01`);
+                  return (
+                    <TableHead key={monthKey} colSpan={3} className="text-center border-l">
+                      {format(monthDate, 'MMM', { locale: ptBR })}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
               <TableRow className="text-xs">
                 <TableHead className="sticky left-0 bg-background z-10"></TableHead>
-                {months.map((month) => {
-                  const key = format(month, 'yyyy-MM');
-                  return (
-                    <Fragment key={key}>
-                      <TableHead key={`${key}-prev`} className="text-center border-l">Prev.</TableHead>
-                      <TableHead key={`${key}-real`} className="text-center">Real</TableHead>
-                      <TableHead key={`${key}-var`} className="text-center">Var.</TableHead>
-                    </Fragment>
-                  );
-                })}
+                {months.map((monthKey) => (
+                  <Fragment key={monthKey}>
+                    <TableHead className="text-center border-l">Prev.</TableHead>
+                    <TableHead className="text-center">Real</TableHead>
+                    <TableHead className="text-center">Var.</TableHead>
+                  </Fragment>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -277,22 +278,21 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                       </div>
                     </div>
                   </TableCell>
-                  {months.map(month => {
-                    const monthKey = format(month, 'yyyy-MM');
+                  {months.map(monthKey => {
                     const data = row.monthlyData[monthKey] || { planned: 0, actual: 0, variance: 0 };
                     
                     return (
-                      <>
-                        <TableCell key={`${month}-prev`} className="text-right border-l font-mono text-sm">
+                      <Fragment key={monthKey}>
+                        <TableCell className="text-right border-l font-mono text-sm">
                           {data.planned > 0 ? data.planned.toFixed(2) : (data.actual > 0 ? '0.00' : '-')}
                         </TableCell>
-                        <TableCell key={`${month}-real`} className="text-right font-mono text-sm">
+                        <TableCell className="text-right font-mono text-sm">
                           {data.actual > 0 ? data.actual.toFixed(2) : (data.planned > 0 ? '0.00' : '-')}
                         </TableCell>
-                        <TableCell key={`${month}-var`} className="text-center">
+                        <TableCell className="text-center">
                           {(data.planned > 0 || data.actual > 0) ? getVarianceBadge(data.variance, data.planned, data.actual) : '-'}
                         </TableCell>
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableRow>
