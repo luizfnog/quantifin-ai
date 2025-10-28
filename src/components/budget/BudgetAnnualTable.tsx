@@ -140,6 +140,10 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
     });
 
     // Process transactions - show even if no budget exists
+    console.log('Total transactions received:', transactions.length);
+    console.log('October transactions:', transactions.filter(t => t.date.startsWith('2025-10')).length);
+    console.log('Sample October transaction:', transactions.find(t => t.date.startsWith('2025-10')));
+    
     transactions.forEach(transaction => {
       const isExpense = transaction.type === 'expense' || (typeof transaction.amount === 'number' && Number(transaction.amount) < 0);
       if (!isExpense) return;
