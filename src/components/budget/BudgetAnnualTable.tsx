@@ -144,18 +144,9 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       const isExpense = transaction.type === 'expense' || (typeof transaction.amount === 'number' && Number(transaction.amount) < 0);
       if (!isExpense) return;
       
-      // Normalize month for transactions: if on the last day of the month, count for next month
+      // Use the transaction's calendar month directly (no shifting)
       const rawMonthKey = transaction.date.substring(0, 7); // "YYYY-MM"
-      const day = parseInt(transaction.date.substring(8, 10), 10);
-      const y = parseInt(rawMonthKey.substring(0, 4), 10);
-      const m = parseInt(rawMonthKey.substring(5, 7), 10);
-      const lastDay = new Date(y, m, 0).getDate();
-      let monthKey = rawMonthKey;
-      if (day === lastDay) {
-        const nextY = m === 12 ? y + 1 : y;
-        const nextM = m === 12 ? 1 : m + 1;
-        monthKey = `${nextY}-${String(nextM).padStart(2, '0')}`;
-      }
+      const monthKey = rawMonthKey;
       const transactionYear = parseInt(monthKey.substring(0, 4));
       
       console.log('Transaction processing:', {
