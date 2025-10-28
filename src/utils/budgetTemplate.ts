@@ -7,13 +7,13 @@ export const downloadBudgetTemplate = () => {
   ];
 
   const exampleRows = [
-    ["2025-01-01", "Habitação", "Aluguel/Financiamento", "1500,00"],
-    ["2025-01-01", "Habitação", "Conta de Luz", "150,00"],
-    ["2025-01-01", "Alimentação", "Supermercado", "800,00"],
-    ["2025-01-01", "Transporte", "Combustível", "300,00"],
+    ["01/01/2025", "Habitação", "Aluguel/Financiamento", "1500,00"],
+    ["01/01/2025", "Habitação", "Conta de Luz", "150,00"],
+    ["01/01/2025", "Alimentação", "Supermercado", "800,00"],
+    ["01/01/2025", "Transporte", "Combustível", "300,00"],
   ];
 
-  const instructionComment = "# IMPORTANTE: Use formato YYYY-MM-DD para datas. Valores devem ser positivos. Encoding UTF-8. Use vírgula para decimais.";
+  const instructionComment = "# IMPORTANTE: Use formato DD/MM/AAAA para datas. Valores devem ser positivos. Encoding UTF-8. Use vírgula para decimais.";
   
   const csvContent = [
     instructionComment,
