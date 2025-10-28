@@ -115,7 +115,7 @@ const Budget = () => {
         `)
         .eq("user_id", user.id)
         .eq("type", "expense")
-        .order("date", { ascending: true })
+        .order("date", { ascending: false })
         .limit(10000);
 
       if (error) throw error;
