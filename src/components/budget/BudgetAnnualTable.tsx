@@ -92,13 +92,23 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
 
     // Process budgets
     budgets.forEach(budget => {
-      // Extract year-month directly from date string (YYYY-MM-DD format)
-      const monthKey = budget.month.substring(0, 7); // "2025-09"
-      const budgetYear = parseInt(monthKey.substring(0, 4));
+      // Normalize month: budgets saved on previous month's last day count for the next month
+      const rawMonthKey = budget.month.substring(0, 7); // "YYYY-MM"
+      const dayStr = budget.month.substring(8, 10); // "DD"
+      let monthKey = rawMonthKey;
+      if (dayStr !== '01') {
+        const y = parseInt(rawMonthKey.substring(0, 4), 10);
+        const m = parseInt(rawMonthKey.substring(5, 7), 10);
+        const nextY = m === 12 ? y + 1 : y;
+        const nextM = m === 12 ? 1 : m + 1;
+        monthKey = `${nextY}-${String(nextM).padStart(2, '0')}`;
+      }
+      const budgetYear = parseInt(monthKey.substring(0, 4), 10);
       
       console.log('Budget processing:', {
         original_month: budget.month,
-        extracted_monthKey: monthKey,
+        extracted_monthKey: rawMonthKey,
+        adjusted_monthKey: monthKey,
         budgetYear,
         selectedYear,
         category: budget.category.name,
