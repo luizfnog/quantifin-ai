@@ -7,18 +7,18 @@ export const downloadBudgetTemplate = () => {
   ];
 
   const exampleRows = [
-    ["2025-01-01", "Habitação", "Aluguel/Financiamento", "1500.00"],
-    ["2025-01-01", "Habitação", "Conta de Luz", "150.00"],
-    ["2025-01-01", "Alimentação", "Supermercado", "800.00"],
-    ["2025-01-01", "Transporte", "Combustível", "300.00"],
+    ["2025-01-01", "Habitação", "Aluguel/Financiamento", "1500,00"],
+    ["2025-01-01", "Habitação", "Conta de Luz", "150,00"],
+    ["2025-01-01", "Alimentação", "Supermercado", "800,00"],
+    ["2025-01-01", "Transporte", "Combustível", "300,00"],
   ];
 
-  const instructionComment = "# IMPORTANTE: Use formato YYYY-MM-DD para datas. Valores devem ser positivos. Encoding UTF-8.";
+  const instructionComment = "# IMPORTANTE: Use formato YYYY-MM-DD para datas. Valores devem ser positivos. Encoding UTF-8. Use vírgula para decimais.";
   
   const csvContent = [
     instructionComment,
-    headers.join(","),
-    ...exampleRows.map(row => row.join(","))
+    headers.join(";"),
+    ...exampleRows.map(row => row.join(";"))
   ].join("\n");
 
   // Add BOM for UTF-8 encoding

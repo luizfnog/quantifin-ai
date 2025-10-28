@@ -8,10 +8,10 @@ export const CSV_TEMPLATE_HEADERS = [
 ];
 
 export const generateCSVTemplate = () => {
-  const headers = CSV_TEMPLATE_HEADERS.join(',');
-  const exampleExpense = '2025-01-15,Pagamento Supermercado XYZ,-250.00,Alimentação,Supermercado';
-  const exampleIncome = '2025-01-20,Salário Mensal,3500.00,Renda,';
-  const instructionComment = '# IMPORTANTE: Use valores NEGATIVOS para despesas (ex: -250.00) e POSITIVOS para receitas (ex: 3500.00)';
+  const headers = CSV_TEMPLATE_HEADERS.join(';');
+  const exampleExpense = '2025-01-15;Pagamento Supermercado XYZ;-250,00;Alimentação;Supermercado';
+  const exampleIncome = '2025-01-20;Salário Mensal;3500,00;Renda;';
+  const instructionComment = '# IMPORTANTE: Use valores NEGATIVOS para despesas (ex: -250,00) e POSITIVOS para receitas (ex: 3500,00). Use vírgula para decimais.';
   
   return `${instructionComment}\n${headers}\n${exampleExpense}\n${exampleIncome}`;
 };
