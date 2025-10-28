@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -99,6 +99,9 @@ const Budget = () => {
   // Fetch all transactions for annual view
   const { data: allTransactions } = useQuery({
     queryKey: ["transactions-all"],
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    staleTime: 0,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -117,6 +120,13 @@ const Budget = () => {
       return data;
     },
   });
+
+  useEffect(() => {
+    console.log('allTransactions length:', allTransactions?.length);
+    if (allTransactions && allTransactions.length > 0) {
+      console.log('allTransactions sample:', allTransactions[0]);
+    }
+  }, [allTransactions]);
 
   const handleDownloadTemplate = () => {
     downloadBudgetTemplate();
