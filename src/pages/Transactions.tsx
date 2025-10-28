@@ -73,6 +73,7 @@ const Transactions = () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("*")
+        .limit(50000)
         .order("date", { ascending: false });
 
       if (error) throw error;
