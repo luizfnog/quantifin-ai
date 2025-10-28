@@ -105,7 +105,11 @@ const Budget = () => {
       
       const { data, error } = await supabase
         .from("transactions")
-        .select("*")
+        .select(`
+          *,
+          category:categories!transactions_category_id_fkey(id, name, color, icon),
+          subcategory:categories!transactions_subcategory_id_fkey(id, name, color, icon)
+        `)
         .eq("user_id", user.id)
         .eq("type", "expense");
 
