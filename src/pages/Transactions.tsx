@@ -174,12 +174,19 @@ const Transactions = () => {
     if (selectedIds.size === 0) return;
     
     try {
-      const { error } = await supabase
-        .from("transactions")
-        .delete()
-        .in("id", Array.from(selectedIds));
+      const idsArray = Array.from(selectedIds);
+      const batchSize = 100;
       
-      if (error) throw error;
+      // Process deletions in batches to avoid URL length limits
+      for (let i = 0; i < idsArray.length; i += batchSize) {
+        const batch = idsArray.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from("transactions")
+          .delete()
+          .in("id", batch);
+        
+        if (error) throw error;
+      }
 
       toast({
         title: "Transações excluídas",
