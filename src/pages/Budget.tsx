@@ -31,6 +31,7 @@ const Budget = () => {
 
       const startDate = format(selectedMonth, "yyyy-MM-01");
       const endDate = format(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0), "yyyy-MM-dd");
+      const prevMonthLastDay = format(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 0), "yyyy-MM-dd");
       
       const { data, error } = await supabase
         .from("budgets")
@@ -40,8 +41,7 @@ const Budget = () => {
           subcategory:categories!subcategory_id(id, name, color, icon)
         `)
         .eq("user_id", user.id)
-        .gte("month", startDate)
-        .lte("month", endDate);
+        .or(`and(month.gte.${startDate},month.lte.${endDate}),month.eq.${prevMonthLastDay}`);
 
       if (error) throw error;
       return data;

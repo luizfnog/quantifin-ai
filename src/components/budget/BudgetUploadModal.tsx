@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { parse } from "date-fns";
+import { parse, format } from "date-fns";
 
 interface BudgetUploadModalProps {
   open: boolean;
@@ -161,7 +161,7 @@ const BudgetUploadModal = ({ open, onClose, onSuccess }: BudgetUploadModalProps)
 
         budgetsToInsert.push({
           user_id: user.id,
-          month: month.toISOString().split("T")[0],
+          month: `${format(month, 'yyyy-MM')}-01`,
           category_id: parentCategory.id,
           subcategory_id: subcategory?.id || null,
           planned_amount: amount,
