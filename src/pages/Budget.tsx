@@ -29,8 +29,7 @@ const Budget = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const startDate = format(selectedMonth, "yyyy-MM-01");
-      const endDate = format(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1), "yyyy-MM-01");
+      const monthKey = format(selectedMonth, "yyyy-MM-dd");
       
       const { data, error } = await supabase
         .from("budgets")
@@ -40,8 +39,7 @@ const Budget = () => {
           subcategory:categories!subcategory_id(id, name, color, icon)
         `)
         .eq("user_id", user.id)
-        .gte("month", startDate)
-        .lt("month", endDate);
+        .like("month", `${monthKey.substring(0, 7)}%`);
 
       if (error) throw error;
       return data;
