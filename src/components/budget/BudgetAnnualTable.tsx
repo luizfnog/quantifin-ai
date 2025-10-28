@@ -96,6 +96,16 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       const monthKey = budget.month.substring(0, 7); // "2025-09"
       const budgetYear = parseInt(monthKey.substring(0, 4));
       
+      console.log('Budget processing:', {
+        original_month: budget.month,
+        extracted_monthKey: monthKey,
+        budgetYear,
+        selectedYear,
+        category: budget.category.name,
+        subcategory: budget.subcategory?.name,
+        planned_amount: budget.planned_amount
+      });
+      
       if (budgetYear !== parseInt(selectedYear)) return;
 
       const key = `${budget.category.id}-${budget.subcategory?.id || 'null'}`;
@@ -126,6 +136,16 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       // Extract year-month directly from date string (YYYY-MM-DD format)
       const monthKey = transaction.date.substring(0, 7); // "2025-10"
       const transactionYear = parseInt(monthKey.substring(0, 4));
+      
+      console.log('Transaction processing:', {
+        original_date: transaction.date,
+        extracted_monthKey: monthKey,
+        transactionYear,
+        selectedYear,
+        type: transaction.type,
+        amount: transaction.amount,
+        category_id: transaction.category_id
+      });
       
       if (transactionYear !== parseInt(selectedYear)) return;
 
