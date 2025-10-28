@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, TrendingUp, DollarSign, PieChart, Calendar as CalendarIcon } from "lucide-react";
+import { Upload, TrendingUp, DollarSign, PieChart, Calendar as CalendarIcon, Wallet, TrendingDown, Shield } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -75,14 +75,97 @@ const Index = () => {
     }
   });
 
+  // Fetch all historical transactions for accumulated balance
+  const { data: allTransactions } = useQuery({
+    queryKey: ["all-transactions"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      
+      let allData: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .range(from, from + batchSize - 1)
+          .order("date", { ascending: true });
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      return allData;
+    }
+  });
+
   const kpis = useMemo(() => {
     const totalExpense = (monthExpenses || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
     const totalIncome = (monthIncomes || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
     const balance = totalIncome - totalExpense;
+    
+    // Calculate accumulated historical balance (all time)
+    const accumulatedBalance = (allTransactions || []).reduce((sum: number, t: any) => {
+      if (t.type === "income") return sum + Number(t.amount);
+      if (t.type === "expense") return sum - Number(t.amount);
+      return sum;
+    }, 0);
+
+    // Calculate safety margin (average monthly income - average monthly fixed expenses)
+    const incomesByMonth = new Map<string, number>();
+    const expensesByMonth = new Map<string, number>();
+    
+    (allTransactions || []).forEach((t: any) => {
+      const monthKey = t.date.substring(0, 7); // YYYY-MM
+      if (t.type === "income") {
+        incomesByMonth.set(monthKey, (incomesByMonth.get(monthKey) || 0) + Number(t.amount));
+      } else if (t.type === "expense") {
+        expensesByMonth.set(monthKey, (expensesByMonth.get(monthKey) || 0) + Number(t.amount));
+      }
+    });
+
+    const avgMonthlyIncome = incomesByMonth.size > 0 
+      ? Array.from(incomesByMonth.values()).reduce((a, b) => a + b, 0) / incomesByMonth.size 
+      : 0;
+    const avgMonthlyExpense = expensesByMonth.size > 0
+      ? Array.from(expensesByMonth.values()).reduce((a, b) => a + b, 0) / expensesByMonth.size
+      : 0;
+    const safetyMargin = avgMonthlyIncome - avgMonthlyExpense;
+
+    // Calculate income diversification index (number of unique income categories)
+    const incomeCategories = new Set(
+      (allTransactions || [])
+        .filter((t: any) => t.type === "income" && t.category_id)
+        .map((t: any) => t.category_id)
+    );
+    const diversificationIndex = incomeCategories.size;
+
     // Simple heuristic for health score
     const healthScore = Math.max(0, Math.min(100, Math.round(70 + (balance >= 0 ? 10 : -10))));
-    return { totalExpense, totalIncome, balance, healthScore };
-  }, [monthExpenses, monthIncomes]);
+    
+    return { 
+      totalExpense, 
+      totalIncome, 
+      balance, 
+      healthScore,
+      accumulatedBalance,
+      safetyMargin,
+      diversificationIndex,
+      avgMonthlyIncome,
+      avgMonthlyExpense
+    };
+  }, [monthExpenses, monthIncomes, allTransactions]);
 
   type CatAgg = { category: string; amount: number; percentage: number; subcategories?: { category: string; amount: number; percentage: number }[] };
   const topExpenses: CatAgg[] = useMemo(() => {
@@ -136,16 +219,16 @@ const Index = () => {
           </Popover>
         </div>
 
-        {/* KPIs Grid */}
+        {/* KPIs Grid - Primary Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <KPICard
-            title="Saúde Financeira"
-            value={`${kpis.healthScore}/100`}
-            icon={<TrendingUp className="w-5 h-5" />}
-            variant="success"
-            trend={kpis.healthScore >= 70 ? "up" : "down"}
-            trendValue={kpis.healthScore >= 70 ? "+Saudável" : "Atenção"}
-            description="Indicador geral com base no balanço do mês selecionado."
+            title="Saldo Acumulado Total"
+            value={`R$ ${kpis.accumulatedBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            icon={<Wallet className="w-5 h-5" />}
+            variant={kpis.accumulatedBalance >= 0 ? "success" : "warning"}
+            trend={kpis.accumulatedBalance >= 0 ? "up" : "down"}
+            trendValue={kpis.accumulatedBalance >= 0 ? "Patrimônio Positivo" : "Saldo Negativo"}
+            description="Saldo acumulado histórico: soma líquida (Receitas - Despesas) de todas as transações registradas, representando seu patrimônio líquido gerenciado na plataforma."
           />
 
           <KPICard
@@ -176,6 +259,49 @@ const Index = () => {
             trend="down"
             trendValue="Acumulado do mês"
             description="Total de despesas no período."
+          />
+        </div>
+
+        {/* KPIs Grid - Strategic Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <KPICard
+            title="Margem de Segurança"
+            value={`R$ ${kpis.safetyMargin.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            icon={<Shield className="w-5 h-5" />}
+            variant={kpis.safetyMargin >= 0 ? "success" : "warning"}
+            trend={kpis.safetyMargin >= 0 ? "up" : "down"}
+            trendValue={kpis.safetyMargin >= 0 ? "Margem Positiva" : "Atenção"}
+            description="Média mensal de receitas menos despesas fixas. Mostra o valor médio disponível para gastos variáveis, investimentos e reservas de emergência."
+          />
+
+          <KPICard
+            title="Diversificação de Receita"
+            value={`${kpis.diversificationIndex} ${kpis.diversificationIndex === 1 ? 'fonte' : 'fontes'}`}
+            icon={<TrendingUp className="w-5 h-5" />}
+            variant="primary"
+            trend={kpis.diversificationIndex > 1 ? "up" : "down"}
+            trendValue={kpis.diversificationIndex > 1 ? "Diversificado" : "Concentrado"}
+            description="Número de fontes distintas de receita (categorias). Quanto maior, mais robusto e resiliente é seu perfil financeiro em caso de perda de uma fonte."
+          />
+
+          <KPICard
+            title="Saúde Financeira"
+            value={`${kpis.healthScore}/100`}
+            icon={<TrendingUp className="w-5 h-5" />}
+            variant="success"
+            trend={kpis.healthScore >= 70 ? "up" : "down"}
+            trendValue={kpis.healthScore >= 70 ? "+Saudável" : "Atenção"}
+            description="Indicador geral com base no balanço do mês selecionado."
+          />
+
+          <KPICard
+            title="Média Mensal de Receitas"
+            value={`R$ ${kpis.avgMonthlyIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            icon={<TrendingUp className="w-5 h-5" />}
+            variant="accent"
+            trend="up"
+            trendValue="Histórico completo"
+            description="Média de todas as receitas mensais registradas. Útil para planejamento financeiro de longo prazo."
           />
         </div>
 
