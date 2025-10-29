@@ -143,11 +143,10 @@ const Index = () => {
     const balance = totalIncome - totalExpense;
     
     // Calculate accumulated historical balance (all time)
+    // IMPORTANT: Database stores amounts with correct sign (income positive, expense negative)
+    // So we just sum all amounts directly
     const accumulatedBalance = (allTransactions || []).reduce((sum: number, t: any) => {
-      const amt = toNumber(t.amount);
-      if (t.type === "income") return sum + amt;
-      if (t.type === "expense") return sum - amt;
-      return sum;
+      return sum + toNumber(t.amount);
     }, 0);
 
     // Calculate safety margin (average monthly income - average monthly fixed expenses)
@@ -210,7 +209,7 @@ const Index = () => {
         },
         sums: {
           month: { totalIncome, totalExpense, balance },
-          allRaw: { income: sum(incomeTx), expense: sum(expenseTx) },
+          allRawSum: sum(all), // Direct sum of all amounts with sign
           allAbs: { income: sum(incomeTx, true), expense: sum(expenseTx, true) },
           accumulatedBalance,
         },
