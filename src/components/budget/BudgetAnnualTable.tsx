@@ -281,6 +281,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
     
     const percentOver = (variance / planned) * 100;
     
+    // Only show "Acima do Orçamento" when variance is strictly greater than 0
     if (variance > 0) {
       return (
         <Badge variant="destructive" className="font-mono">
@@ -294,6 +295,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
         </Badge>
       );
     }
+    // When variance is exactly 0, show as "Dentro do Orçamento"
     return <Badge variant="outline" className="font-mono">0.00 (0%)</Badge>;
   };
 
