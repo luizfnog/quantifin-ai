@@ -263,32 +263,10 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       // Prepare transactions for insertion with error tracking
       const transactionsToInsert = [];
       const errors: string[] = [];
-      let duplicatesSkipped = 0;
       
-      // Build per-key counts for this file
-      const fileCounts = new Map<string, number>();
-      const rowsWithKeys = transactions.map((t) => {
-        const type = t.amount < 0 ? 'expense' : 'income';
-        const key = makeKey(t.date, t.description, type, Math.abs(t.amount));
-        fileCounts.set(key, (fileCounts.get(key) || 0) + 1);
-        return { t, key, type };
-      });
-      
-      // Track number inserted for each key in this batch
-      const insertedForKey = new Map<string, number>();
-      
-      for (const { t, key, type } of rowsWithKeys) {
+      for (const t of transactions) {
         try {
-          const existingCount = existingCounts.get(key) || 0;
-          const fileCount = fileCounts.get(key) || 0;
-          const insertedSoFar = insertedForKey.get(key) || 0;
-
-          // Only insert up to the difference between fileCount and existingCount
-          if (insertedSoFar >= Math.max(0, fileCount - existingCount)) {
-            duplicatesSkipped++;
-            continue;
-          }
-          
+          const type = t.amount < 0 ? 'expense' : 'income';
           const category = t.category ? finalCategoryMap.get(t.category.toLowerCase().trim()) : null;
           let subcategory = null;
           
@@ -309,7 +287,6 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
             subcategory_id: subcategory?.id || null,
             ai_confidence: category ? 100 : 85
           });
-          insertedForKey.set(key, insertedSoFar + 1);
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
           errors.push(`Linha ${t.lineNumber}: ${errorMsg}`);
@@ -333,9 +310,6 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       setIsUploading(false);
       
       let successMsg = `${transactionsToInsert.length} transações importadas com sucesso!`;
-      if (duplicatesSkipped > 0) {
-        successMsg += ` ${duplicatesSkipped} duplicadas ignoradas.`;
-      }
       if (errors.length > 0) {
         successMsg += ` ${errors.length} avisos.`;
       }
