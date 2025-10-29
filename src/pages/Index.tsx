@@ -111,17 +111,20 @@ const Index = () => {
   });
 
   const kpis = useMemo(() => {
-    const totalExpense = (monthExpenses || []).reduce((sum: number, t: any) => sum + Math.abs(Number(t.amount)), 0);
-    const totalIncome = (monthIncomes || []).reduce((sum: number, t: any) => sum + Math.abs(Number(t.amount)), 0);
-    const balance = totalIncome - totalExpense;
+    const totalExpenseCents = (monthExpenses || []).reduce((sum: number, t: any) => sum + Math.round(Math.abs(Number(t.amount)) * 100), 0);
+    const totalIncomeCents = (monthIncomes || []).reduce((sum: number, t: any) => sum + Math.round(Math.abs(Number(t.amount)) * 100), 0);
+    const totalExpense = totalExpenseCents / 100;
+    const totalIncome = totalIncomeCents / 100;
+    const balance = (totalIncomeCents - totalExpenseCents) / 100;
     
     // Calculate accumulated historical balance (all time)
-    const accumulatedBalance = (allTransactions || []).reduce((sum: number, t: any) => {
-      const amount = Math.abs(Number(t.amount));
-      if (t.type === "income") return sum + amount;
-      if (t.type === "expense") return sum - amount;
+    const accumulatedBalanceCents = (allTransactions || []).reduce((sum: number, t: any) => {
+      const amountCents = Math.round(Math.abs(Number(t.amount)) * 100);
+      if (t.type === "income") return sum + amountCents;
+      if (t.type === "expense") return sum - amountCents;
       return sum;
     }, 0);
+    const accumulatedBalance = accumulatedBalanceCents / 100;
 
     // Calculate safety margin (average monthly income - average monthly fixed expenses)
     const incomesByMonth = new Map<string, number>();

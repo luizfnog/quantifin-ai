@@ -233,13 +233,15 @@ const Transactions = () => {
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const allTransactionIds = filteredTransactions.map(t => t.id);
-      setSelectedIds(new Set(allTransactionIds));
+  const handleSelectAll = (checked: boolean | "indeterminate") => {
+    const isChecked = checked === true;
+    if (isChecked) {
+      const validIds = filteredTransactions.map(t => t.id).filter(Boolean) as string[];
+      const uniqueIds = Array.from(new Set(validIds));
+      setSelectedIds(new Set(uniqueIds));
       toast({
         title: "Todas as transações selecionadas",
-        description: `${allTransactionIds.length} transação(ões) selecionada(s) para deleção.`,
+        description: `${uniqueIds.length} transação(ões) selecionada(s) para deleção.`,
       });
     } else {
       setSelectedIds(new Set());
@@ -247,6 +249,7 @@ const Transactions = () => {
   };
 
   const handleSelectOne = (id: string, checked: boolean) => {
+    if (!id) return;
     const newSelected = new Set(selectedIds);
     if (checked) {
       newSelected.add(id);
@@ -393,8 +396,11 @@ const Transactions = () => {
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
-                  checked={filteredTransactions.length > 0 && filteredTransactions.every(t => selectedIds.has(t.id))}
-                  onCheckedChange={handleSelectAll}
+                  checked={(() => {
+                    const validIds = filteredTransactions.map(t => t.id).filter(Boolean) as string[];
+                    return validIds.length > 0 && validIds.every((id) => selectedIds.has(id));
+                  })()}
+                  onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
                   title="Selecionar todas as transações"
                 />
               </TableHead>
