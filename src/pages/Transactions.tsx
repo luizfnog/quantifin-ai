@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Upload, Edit } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Edit, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -266,6 +266,36 @@ const Transactions = () => {
     fetchTransactions();
   };
 
+  const handleExportCSV = () => {
+    const headers = ["Data", "Descrição", "Categoria", "Subcategoria", "Tipo", "Valor"];
+    const csvContent = [
+      headers.join(";"),
+      ...filteredTransactions.map(t => [
+        new Date(t.date).toLocaleDateString("pt-BR"),
+        `"${t.description}"`,
+        t.categories?.name || "",
+        t.subcategories?.name || "",
+        t.type === "income" ? "Receita" : "Despesa",
+        Math.abs(t.amount).toFixed(2).replace(".", ",")
+      ].join(";"))
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `transacoes_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Exportação concluída",
+      description: `${filteredTransactions.length} transações exportadas com sucesso.`,
+    });
+  };
+
   // Pagination logic
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -305,6 +335,10 @@ const Transactions = () => {
               </Button>
             </>
           )}
+          <Button variant="outline" onClick={handleExportCSV} disabled={filteredTransactions.length === 0}>
+            <Download className="w-4 h-4 mr-2" />
+            Exportar CSV
+          </Button>
           <Button variant="outline" onClick={() => setUploadModalOpen(true)}>
             <Upload className="w-4 h-4 mr-2" />
             Upload CSV

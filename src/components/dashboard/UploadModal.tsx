@@ -73,6 +73,18 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
       
+      // Fetch existing transactions to check for duplicates
+      const { data: existingTransactions } = await supabase
+        .from('transactions')
+        .select('date, description, amount')
+        .eq('user_id', user.id);
+      
+      const existingTransactionsSet = new Set(
+        existingTransactions?.map(t => 
+          `${t.date}|${t.description.toLowerCase().trim()}|${Math.abs(t.amount)}`
+        ) || []
+      );
+      
       // Fetch all existing categories
       const { data: categories } = await supabase
         .from('categories')
@@ -242,9 +254,17 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       // Prepare transactions for insertion with error tracking
       const transactionsToInsert = [];
       const errors: string[] = [];
+      let duplicatesSkipped = 0;
       
       for (const t of transactions) {
         try {
+          // Check for duplicates
+          const transactionKey = `${t.date}|${t.description.toLowerCase().trim()}|${Math.abs(t.amount)}`;
+          if (existingTransactionsSet.has(transactionKey)) {
+            duplicatesSkipped++;
+            continue;
+          }
+          
           const category = t.category ? finalCategoryMap.get(t.category.toLowerCase().trim()) : null;
           let subcategory = null;
           
@@ -287,9 +307,13 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       
       setIsUploading(false);
       
-      const successMsg = errors.length > 0 
-        ? `${transactionsToInsert.length} transações importadas com ${errors.length} avisos.`
-        : `${transactionsToInsert.length} transações importadas com sucesso!`;
+      let successMsg = `${transactionsToInsert.length} transações importadas com sucesso!`;
+      if (duplicatesSkipped > 0) {
+        successMsg += ` ${duplicatesSkipped} duplicadas ignoradas.`;
+      }
+      if (errors.length > 0) {
+        successMsg += ` ${errors.length} avisos.`;
+      }
       
       toast({
         title: "Upload Concluído",
