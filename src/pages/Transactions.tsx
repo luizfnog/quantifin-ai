@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import TransactionModal from "@/components/transactions/TransactionModal";
+import BulkEditModal from "@/components/transactions/BulkEditModal";
 import UploadModal from "@/components/dashboard/UploadModal";
 import TransactionFiltersComponent, { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import {
@@ -52,6 +53,7 @@ const Transactions = () => {
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -258,6 +260,12 @@ const Transactions = () => {
     fetchTransactions();
   };
 
+  const handleBulkEditModalClose = () => {
+    setBulkEditModalOpen(false);
+    setSelectedIds(new Set());
+    fetchTransactions();
+  };
+
   // Pagination logic
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -286,10 +294,16 @@ const Transactions = () => {
         </div>
         <div className="flex gap-3">
           {selectedIds.size > 0 && (
-            <Button variant="destructive" onClick={handleDeleteSelected}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              Deletar Selecionadas ({selectedIds.size})
-            </Button>
+            <>
+              <Button onClick={() => setBulkEditModalOpen(true)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Editar Selecionadas ({selectedIds.size})
+              </Button>
+              <Button variant="destructive" onClick={handleDeleteSelected}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Deletar Selecionadas ({selectedIds.size})
+              </Button>
+            </>
           )}
           <Button variant="outline" onClick={() => setUploadModalOpen(true)}>
             <Upload className="w-4 h-4 mr-2" />
@@ -487,6 +501,12 @@ const Transactions = () => {
         open={modalOpen}
         onClose={handleModalClose}
         transaction={editingTransaction}
+      />
+
+      <BulkEditModal
+        open={bulkEditModalOpen}
+        onClose={handleBulkEditModalClose}
+        selectedIds={Array.from(selectedIds)}
       />
 
       <UploadModal
