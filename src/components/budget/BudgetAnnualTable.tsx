@@ -190,7 +190,9 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       if (!row.monthlyData[monthKey]) {
         row.monthlyData[monthKey] = { planned: 0, actual: 0, variance: 0 };
       }
-      row.monthlyData[monthKey].actual += Math.abs(transaction.amount);
+      // Use absolute value for all transactions to ensure they display correctly
+      const absoluteAmount = Math.abs(Number(transaction.amount));
+      row.monthlyData[monthKey].actual += absoluteAmount;
     });
 
     // Calculate variances
