@@ -141,8 +141,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
 
     // Process transactions - show even if no budget exists
     transactions.forEach(transaction => {
-      const isExpense = transaction.type === 'expense' || (typeof transaction.amount === 'number' && Number(transaction.amount) < 0);
-      if (!isExpense) return;
+      // Process all transactions (both income and expense)
       
       // Use the transaction's calendar month directly (no shifting)
       const rawMonthKey = transaction.date.substring(0, 7); // "YYYY-MM"
@@ -340,7 +339,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
             <TableBody>
               {categoryRows.map((categoryRow) => {
                 const isExpanded = expandedCategories.has(categoryRow.categoryId);
-                const hasSubcategories = categoryRow.subcategories.length > 1;
+                const hasSubcategories = categoryRow.subcategories.length > 0;
 
                 return (
                   <Fragment key={categoryRow.categoryId}>
