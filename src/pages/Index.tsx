@@ -105,20 +105,48 @@ const Index = () => {
           hasMore = false;
         }
       }
+
+      // Debug summary for all transactions
+      try {
+        const incomeTx = allData.filter((t: any) => t.type === "income");
+        const expenseTx = allData.filter((t: any) => t.type === "expense");
+        const sum = (arr: any[], abs = false) => arr.reduce((s: number, t: any) => s + (abs ? Math.abs(Number(t.amount)) : Number(t.amount)), 0);
+        const summary = {
+          total: allData.length,
+          incomeCount: incomeTx.length,
+          expenseCount: expenseTx.length,
+          incomeRaw: sum(incomeTx),
+          expenseRaw: sum(expenseTx),
+          incomeAbs: sum(incomeTx, true),
+          expenseAbs: sum(expenseTx, true),
+          incomeNegCount: incomeTx.filter((t: any) => Number(t.amount) < 0).length,
+          expenseNegCount: expenseTx.filter((t: any) => Number(t.amount) < 0).length,
+          minDate: allData[0]?.date,
+          maxDate: allData[allData.length - 1]?.date,
+        };
+        console.groupCollapsed('[DEBUG] allTransactions summary');
+        console.log(summary);
+        console.groupEnd();
+      } catch (e) {
+        console.warn('[DEBUG] allTransactions summary failed', e);
+      }
       
       return allData;
     }
   });
 
   const kpis = useMemo(() => {
-    const totalExpense = (monthExpenses || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-    const totalIncome = (monthIncomes || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+    const toNumber = (v: any) => Number(v ?? 0);
+
+    const totalExpense = (monthExpenses || []).reduce((sum: number, t: any) => sum + toNumber(t.amount), 0);
+    const totalIncome = (monthIncomes || []).reduce((sum: number, t: any) => sum + toNumber(t.amount), 0);
     const balance = totalIncome - totalExpense;
     
     // Calculate accumulated historical balance (all time)
     const accumulatedBalance = (allTransactions || []).reduce((sum: number, t: any) => {
-      if (t.type === "income") return sum + Number(t.amount);
-      if (t.type === "expense") return sum - Number(t.amount);
+      const amt = toNumber(t.amount);
+      if (t.type === "income") return sum + amt;
+      if (t.type === "expense") return sum - amt;
       return sum;
     }, 0);
 
@@ -129,13 +157,14 @@ const Index = () => {
     
     (allTransactions || []).forEach((t: any) => {
       const monthKey = t.date.substring(0, 7); // YYYY-MM
+      const amt = toNumber(t.amount);
       if (t.type === "income") {
-        incomesByMonth.set(monthKey, (incomesByMonth.get(monthKey) || 0) + Number(t.amount));
+        incomesByMonth.set(monthKey, (incomesByMonth.get(monthKey) || 0) + amt);
       } else if (t.type === "expense") {
-        totalExpensesByMonth.set(monthKey, (totalExpensesByMonth.get(monthKey) || 0) + Number(t.amount));
+        totalExpensesByMonth.set(monthKey, (totalExpensesByMonth.get(monthKey) || 0) + amt);
         // Only count recurring expenses as fixed
         if (t.is_recurring === true) {
-          fixedExpensesByMonth.set(monthKey, (fixedExpensesByMonth.get(monthKey) || 0) + Number(t.amount));
+          fixedExpensesByMonth.set(monthKey, (fixedExpensesByMonth.get(monthKey) || 0) + amt);
         }
       }
     });
@@ -161,6 +190,52 @@ const Index = () => {
 
     // Simple heuristic for health score
     const healthScore = Math.max(0, Math.min(100, Math.round(70 + (balance >= 0 ? 10 : -10))));
+
+    // Debug logs to analyze accumulated balance issues
+    try {
+      const all = allTransactions || [];
+      const incomeTx = all.filter((t: any) => t.type === 'income');
+      const expenseTx = all.filter((t: any) => t.type === 'expense');
+      const sum = (arr: any[], abs = false) => arr.reduce((s: number, t: any) => s + (abs ? Math.abs(toNumber(t.amount)) : toNumber(t.amount)), 0);
+
+      const debugSummary = {
+        timeframe: { startDate, endDate },
+        month: format(selectedMonth, "yyyy-MM"),
+        counts: {
+          monthExpenses: (monthExpenses || []).length,
+          monthIncomes: (monthIncomes || []).length,
+          allTransactions: all.length,
+          incomeCount: incomeTx.length,
+          expenseCount: expenseTx.length,
+        },
+        sums: {
+          month: { totalIncome, totalExpense, balance },
+          allRaw: { income: sum(incomeTx), expense: sum(expenseTx) },
+          allAbs: { income: sum(incomeTx, true), expense: sum(expenseTx, true) },
+          accumulatedBalance,
+        },
+        anomalies: {
+          incomeNegCount: incomeTx.filter((t: any) => toNumber(t.amount) < 0).length,
+          expensePosCount: expenseTx.filter((t: any) => toNumber(t.amount) > 0).length,
+          zeroAmountCount: all.filter((t: any) => toNumber(t.amount) === 0).length,
+        },
+      };
+
+      const sampleIncomeNeg = incomeTx.filter((t: any) => toNumber(t.amount) < 0).slice(0, 5).map((t: any) => ({ id: t.id, date: t.date, amount: toNumber(t.amount), category_id: t.category_id }));
+      const sampleExpensePos = expenseTx.filter((t: any) => toNumber(t.amount) > 0).slice(0, 5).map((t: any) => ({ id: t.id, date: t.date, amount: toNumber(t.amount), category_id: t.category_id }));
+
+      console.groupCollapsed('[DEBUG] KPI Balance Analysis');
+      console.log(debugSummary);
+      if (sampleIncomeNeg.length) {
+        console.table(sampleIncomeNeg);
+      }
+      if (sampleExpensePos.length) {
+        console.table(sampleExpensePos);
+      }
+      console.groupEnd();
+    } catch (e) {
+      console.warn('[DEBUG] KPI Balance Analysis failed', e);
+    }
     
     return { 
       totalExpense, 
