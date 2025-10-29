@@ -143,10 +143,12 @@ const Index = () => {
     const balance = totalIncome - totalExpense;
     
     // Calculate accumulated historical balance (all time)
-    // IMPORTANT: Database stores amounts with correct sign (income positive, expense negative)
-    // So we just sum all amounts directly
+    // Database stores all amounts as POSITIVE, type field determines if income/expense
     const accumulatedBalance = (allTransactions || []).reduce((sum: number, t: any) => {
-      return sum + toNumber(t.amount);
+      const amt = toNumber(t.amount);
+      if (t.type === "income") return sum + amt;
+      if (t.type === "expense") return sum - amt;
+      return sum;
     }, 0);
 
     // Calculate safety margin (average monthly income - average monthly fixed expenses)
@@ -209,14 +211,17 @@ const Index = () => {
         },
         sums: {
           month: { totalIncome, totalExpense, balance },
-          allRawSum: sum(all), // Direct sum of all amounts with sign
-          allAbs: { income: sum(incomeTx, true), expense: sum(expenseTx, true) },
+          allRaw: { income: sum(incomeTx), expense: sum(expenseTx) },
+          difference: sum(incomeTx) - sum(expenseTx),
           accumulatedBalance,
+          discrepancy: accumulatedBalance - 112.42,
         },
         anomalies: {
           incomeNegCount: incomeTx.filter((t: any) => toNumber(t.amount) < 0).length,
           expensePosCount: expenseTx.filter((t: any) => toNumber(t.amount) > 0).length,
           zeroAmountCount: all.filter((t: any) => toNumber(t.amount) === 0).length,
+          nullTypeCount: all.filter((t: any) => !t.type).length,
+          unexpectedTypeCount: all.filter((t: any) => t.type && t.type !== 'income' && t.type !== 'expense').length,
         },
       };
 
