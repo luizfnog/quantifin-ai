@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Upload, Edit, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -72,12 +72,6 @@ const Transactions = () => {
 
   const fetchTransactions = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
       let allData: any[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -88,7 +82,6 @@ const Transactions = () => {
         const { data, error } = await supabase
           .from("transactions")
           .select("*")
-          .eq("user_id", user.id)
           .range(from, from + batchSize - 1)
           .order("date", { ascending: false });
 
@@ -107,17 +100,12 @@ const Transactions = () => {
       const categoryIds = [...new Set(allData?.map(t => t.category_id).filter(Boolean))];
       const subcategoryIds = [...new Set(allData?.map(t => t.subcategory_id).filter(Boolean))];
       
-      let categoryMap = new Map();
-      
-      // Only fetch categories if there are IDs to fetch
-      if (categoryIds.length > 0 || subcategoryIds.length > 0) {
-        const { data: categoriesData } = await supabase
-          .from("categories")
-          .select("*")
-          .in('id', [...categoryIds, ...subcategoryIds]);
+      const { data: categoriesData } = await supabase
+        .from("categories")
+        .select("*")
+        .in('id', [...categoryIds, ...subcategoryIds]);
 
-        categoryMap = new Map(categoriesData?.map(c => [c.id, c]) || []);
-      }
+      const categoryMap = new Map(categoriesData?.map(c => [c.id, c]));
 
       const enrichedData = allData?.map(t => ({
         ...t,
@@ -233,15 +221,13 @@ const Transactions = () => {
     }
   };
 
-  const handleSelectAll = (checked: boolean | "indeterminate") => {
-    const isChecked = checked === true;
-    if (isChecked) {
-      const validIds = filteredTransactions.map(t => t.id).filter(Boolean) as string[];
-      const uniqueIds = Array.from(new Set(validIds));
-      setSelectedIds(new Set(uniqueIds));
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allTransactionIds = filteredTransactions.map(t => t.id);
+      setSelectedIds(new Set(allTransactionIds));
       toast({
         title: "Todas as transações selecionadas",
-        description: `${uniqueIds.length} transação(ões) selecionada(s) para deleção.`,
+        description: `${allTransactionIds.length} transação(ões) selecionada(s) para deleção.`,
       });
     } else {
       setSelectedIds(new Set());
@@ -249,7 +235,6 @@ const Transactions = () => {
   };
 
   const handleSelectOne = (id: string, checked: boolean) => {
-    if (!id) return;
     const newSelected = new Set(selectedIds);
     if (checked) {
       newSelected.add(id);
@@ -279,36 +264,6 @@ const Transactions = () => {
     setBulkEditModalOpen(false);
     setSelectedIds(new Set());
     fetchTransactions();
-  };
-
-  const handleExportCSV = () => {
-    const headers = ["Data", "Descrição", "Categoria", "Subcategoria", "Tipo", "Valor"];
-    const csvContent = [
-      headers.join(";"),
-      ...filteredTransactions.map(t => [
-        new Date(t.date).toLocaleDateString("pt-BR"),
-        `"${t.description}"`,
-        t.categories?.name || "",
-        t.subcategories?.name || "",
-        t.type === "income" ? "Receita" : "Despesa",
-        Math.abs(t.amount).toFixed(2).replace(".", ",")
-      ].join(";"))
-    ].join("\n");
-
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `transacoes_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast({
-      title: "Exportação concluída",
-      description: `${filteredTransactions.length} transações exportadas com sucesso.`,
-    });
   };
 
   // Pagination logic
@@ -350,10 +305,6 @@ const Transactions = () => {
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={handleExportCSV} disabled={filteredTransactions.length === 0}>
-            <Download className="w-4 h-4 mr-2" />
-            Exportar CSV
-          </Button>
           <Button variant="outline" onClick={() => setUploadModalOpen(true)}>
             <Upload className="w-4 h-4 mr-2" />
             Upload CSV
@@ -396,11 +347,8 @@ const Transactions = () => {
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
-                  checked={(() => {
-                    const validIds = filteredTransactions.map(t => t.id).filter(Boolean) as string[];
-                    return validIds.length > 0 && validIds.every((id) => selectedIds.has(id));
-                  })()}
-                  onCheckedChange={(checked) => handleSelectAll(Boolean(checked))}
+                  checked={filteredTransactions.length > 0 && filteredTransactions.every(t => selectedIds.has(t.id))}
+                  onCheckedChange={handleSelectAll}
                   title="Selecionar todas as transações"
                 />
               </TableHead>

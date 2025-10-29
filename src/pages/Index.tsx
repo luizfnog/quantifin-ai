@@ -111,20 +111,16 @@ const Index = () => {
   });
 
   const kpis = useMemo(() => {
-    const totalExpenseCents = (monthExpenses || []).reduce((sum: number, t: any) => sum + Math.round(Math.abs(Number(t.amount)) * 100), 0);
-    const totalIncomeCents = (monthIncomes || []).reduce((sum: number, t: any) => sum + Math.round(Math.abs(Number(t.amount)) * 100), 0);
-    const totalExpense = totalExpenseCents / 100;
-    const totalIncome = totalIncomeCents / 100;
-    const balance = (totalIncomeCents - totalExpenseCents) / 100;
+    const totalExpense = (monthExpenses || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+    const totalIncome = (monthIncomes || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+    const balance = totalIncome - totalExpense;
     
     // Calculate accumulated historical balance (all time)
-    const accumulatedBalanceCents = (allTransactions || []).reduce((sum: number, t: any) => {
-      const amountCents = Math.round(Math.abs(Number(t.amount)) * 100);
-      if (t.type === "income") return sum + amountCents;
-      if (t.type === "expense") return sum - amountCents;
+    const accumulatedBalance = (allTransactions || []).reduce((sum: number, t: any) => {
+      if (t.type === "income") return sum + Number(t.amount);
+      if (t.type === "expense") return sum - Number(t.amount);
       return sum;
     }, 0);
-    const accumulatedBalance = accumulatedBalanceCents / 100;
 
     // Calculate safety margin (average monthly income - average monthly fixed expenses)
     const incomesByMonth = new Map<string, number>();
@@ -134,12 +130,12 @@ const Index = () => {
     (allTransactions || []).forEach((t: any) => {
       const monthKey = t.date.substring(0, 7); // YYYY-MM
       if (t.type === "income") {
-        incomesByMonth.set(monthKey, (incomesByMonth.get(monthKey) || 0) + Math.abs(Number(t.amount)));
+        incomesByMonth.set(monthKey, (incomesByMonth.get(monthKey) || 0) + Number(t.amount));
       } else if (t.type === "expense") {
-        totalExpensesByMonth.set(monthKey, (totalExpensesByMonth.get(monthKey) || 0) + Math.abs(Number(t.amount)));
+        totalExpensesByMonth.set(monthKey, (totalExpensesByMonth.get(monthKey) || 0) + Number(t.amount));
         // Only count recurring expenses as fixed
         if (t.is_recurring === true) {
-          fixedExpensesByMonth.set(monthKey, (fixedExpensesByMonth.get(monthKey) || 0) + Math.abs(Number(t.amount)));
+          fixedExpensesByMonth.set(monthKey, (fixedExpensesByMonth.get(monthKey) || 0) + Number(t.amount));
         }
       }
     });

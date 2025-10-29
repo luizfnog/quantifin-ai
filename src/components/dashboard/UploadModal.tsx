@@ -73,27 +73,6 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
       
-      // Fetch existing transactions to check for duplicates (by key with counts)
-      const { data: existingTransactions } = await supabase
-        .from('transactions')
-        .select('date, description, amount, type')
-        .eq('user_id', user.id);
-      
-      const normalizeDescription = (s: string) =>
-        s.toLowerCase().trim().replace(/\s+/g, ' ');
-      const normalizeAmount = (a: any) => {
-        const n = Number(a);
-        return Math.abs(n).toFixed(2);
-      };
-      
-      const makeKey = (date: string, desc: string, type: string, amount: any) =>
-        `${date}|${normalizeDescription(desc)}|${type}|${normalizeAmount(amount)}`;
-      
-      const existingCounts = new Map<string, number>();
-      (existingTransactions || []).forEach((t: any) => {
-        const key = makeKey(t.date, t.description, t.type, t.amount);
-        existingCounts.set(key, (existingCounts.get(key) || 0) + 1);
-      });
       // Fetch all existing categories
       const { data: categories } = await supabase
         .from('categories')
@@ -266,7 +245,6 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       
       for (const t of transactions) {
         try {
-          const type = t.amount < 0 ? 'expense' : 'income';
           const category = t.category ? finalCategoryMap.get(t.category.toLowerCase().trim()) : null;
           let subcategory = null;
           
@@ -282,7 +260,7 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
             date: t.date,
             description: t.description,
             amount: Math.abs(t.amount),
-            type,
+            type: t.amount < 0 ? 'expense' : 'income',
             category_id: category?.id || null,
             subcategory_id: subcategory?.id || null,
             ai_confidence: category ? 100 : 85
@@ -309,10 +287,9 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       
       setIsUploading(false);
       
-      let successMsg = `${transactionsToInsert.length} transações importadas com sucesso!`;
-      if (errors.length > 0) {
-        successMsg += ` ${errors.length} avisos.`;
-      }
+      const successMsg = errors.length > 0 
+        ? `${transactionsToInsert.length} transações importadas com ${errors.length} avisos.`
+        : `${transactionsToInsert.length} transações importadas com sucesso!`;
       
       toast({
         title: "Upload Concluído",
