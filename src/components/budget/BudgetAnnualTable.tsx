@@ -281,21 +281,23 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
     
     const percentOver = (variance / planned) * 100;
     
-    // Only show "Acima do Orçamento" when variance is strictly greater than 0
-    if (variance > 0) {
+    // Use a small tolerance for floating point comparison (0.01 = 1 cent)
+    const tolerance = 0.01;
+    
+    if (variance > tolerance) {
       return (
         <Badge variant="destructive" className="font-mono">
           +{variance.toFixed(2)} ({percentOver.toFixed(0)}%)
         </Badge>
       );
-    } else if (variance < 0) {
+    } else if (variance < -tolerance) {
       return (
         <Badge variant="default" className="bg-green-600 font-mono">
           {variance.toFixed(2)} ({percentOver.toFixed(0)}%)
         </Badge>
       );
     }
-    // When variance is exactly 0, show as "Dentro do Orçamento"
+    // When variance is within tolerance (essentially 0), show as "Dentro do Orçamento"
     return <Badge variant="outline" className="font-mono">0.00 (0%)</Badge>;
   };
 
