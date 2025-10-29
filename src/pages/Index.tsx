@@ -106,6 +106,13 @@ const Index = () => {
         }
       }
       
+      console.log('Total transactions fetched:', allData.length);
+      console.log('Sample transactions:', allData.slice(0, 5).map(t => ({ 
+        type: t.type, 
+        amount: t.amount, 
+        desc: t.description.substring(0, 30) 
+      })));
+      
       return allData;
     }
   });
