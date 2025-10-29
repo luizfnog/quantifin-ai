@@ -148,6 +148,19 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       const monthKey = rawMonthKey;
       const transactionYear = parseInt(monthKey.substring(0, 4));
       
+      // Debug log for income transactions
+      if (transaction.type === 'income' || transaction.amount > 0) {
+        console.log('Processing income transaction:', {
+          date: transaction.date,
+          monthKey,
+          transactionYear,
+          selectedYear,
+          amount: transaction.amount,
+          category: transaction.category?.name,
+          subcategory: transaction.subcategory?.name
+        });
+      }
+      
       if (transactionYear !== parseInt(selectedYear)) return;
 
       const key = `${transaction.category_id}-${transaction.subcategory_id || 'null'}`;
