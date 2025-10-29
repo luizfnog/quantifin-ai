@@ -72,6 +72,12 @@ const Transactions = () => {
 
   const fetchTransactions = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       let allData: any[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -82,6 +88,7 @@ const Transactions = () => {
         const { data, error } = await supabase
           .from("transactions")
           .select("*")
+          .eq("user_id", user.id)
           .range(from, from + batchSize - 1)
           .order("date", { ascending: false });
 
@@ -100,12 +107,17 @@ const Transactions = () => {
       const categoryIds = [...new Set(allData?.map(t => t.category_id).filter(Boolean))];
       const subcategoryIds = [...new Set(allData?.map(t => t.subcategory_id).filter(Boolean))];
       
-      const { data: categoriesData } = await supabase
-        .from("categories")
-        .select("*")
-        .in('id', [...categoryIds, ...subcategoryIds]);
+      let categoryMap = new Map();
+      
+      // Only fetch categories if there are IDs to fetch
+      if (categoryIds.length > 0 || subcategoryIds.length > 0) {
+        const { data: categoriesData } = await supabase
+          .from("categories")
+          .select("*")
+          .in('id', [...categoryIds, ...subcategoryIds]);
 
-      const categoryMap = new Map(categoriesData?.map(c => [c.id, c]));
+        categoryMap = new Map(categoriesData?.map(c => [c.id, c]) || []);
+      }
 
       const enrichedData = allData?.map(t => ({
         ...t,
