@@ -346,7 +346,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                   <Fragment key={categoryRow.categoryId}>
                     {/* Parent Category Row */}
                     <TableRow className="bg-muted/50 font-semibold hover:bg-muted/70">
-                      <TableCell className="sticky left-0 bg-muted/50 hover:bg-muted/70 z-10 backdrop-blur-sm">
+                      <TableCell className="sticky left-0 bg-muted z-10 shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                         <div className="flex items-center gap-2">
                           {hasSubcategories && (
                             <Button
