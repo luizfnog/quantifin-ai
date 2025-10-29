@@ -313,7 +313,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky left-0 bg-background z-10 min-w-[200px]">
+                <TableHead className="sticky left-0 bg-background z-10 min-w-[200px] shadow-[2px_0_4px_rgba(0,0,0,0.1)]">
                   Categoria / Subcategoria
                 </TableHead>
                 {months.map(monthKey => {
@@ -327,7 +327,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                 })}
               </TableRow>
               <TableRow className="text-xs">
-                <TableHead className="sticky left-0 bg-background z-10"></TableHead>
+                <TableHead className="sticky left-0 bg-background z-10 shadow-[2px_0_4px_rgba(0,0,0,0.1)]"></TableHead>
                 {months.map((monthKey) => (
                   <Fragment key={monthKey}>
                     <TableHead className="text-center border-l">Prev.</TableHead>
@@ -346,7 +346,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                   <Fragment key={categoryRow.categoryId}>
                     {/* Parent Category Row */}
                     <TableRow className="bg-muted/50 font-semibold hover:bg-muted/70">
-                      <TableCell className="sticky left-0 bg-muted/50 hover:bg-muted/70 z-10">
+                      <TableCell className="sticky left-0 bg-muted/50 hover:bg-muted/70 z-10 backdrop-blur-sm">
                         <div className="flex items-center gap-2">
                           {hasSubcategories && (
                             <Button
@@ -391,7 +391,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                     {/* Subcategory Rows (Drill-down) */}
                     {isExpanded && hasSubcategories && categoryRow.subcategories.map((subRow, subIdx) => (
                       <TableRow key={`${categoryRow.categoryId}-${subIdx}`} className="bg-background/50">
-                        <TableCell className="sticky left-0 bg-background/50 z-10 pl-12">
+                        <TableCell className="sticky left-0 bg-background z-10 pl-12">
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground">↳</span>
                             <span className="text-sm">{subRow.subcategoryName}</span>
