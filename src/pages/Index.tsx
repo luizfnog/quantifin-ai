@@ -121,6 +121,15 @@ const Index = () => {
       if (t.type === "expense") return sum - Number(t.amount);
       return sum;
     }, 0);
+    
+    console.log('DEBUG Saldo Acumulado:', {
+      totalTransactions: allTransactions?.length,
+      incomeCount: allTransactions?.filter((t: any) => t.type === 'income').length,
+      expenseCount: allTransactions?.filter((t: any) => t.type === 'expense').length,
+      totalIncome: allTransactions?.filter((t: any) => t.type === 'income').reduce((s: number, t: any) => s + Number(t.amount), 0),
+      totalExpense: allTransactions?.filter((t: any) => t.type === 'expense').reduce((s: number, t: any) => s + Number(t.amount), 0),
+      accumulatedBalance
+    });
 
     // Calculate safety margin (average monthly income - average monthly fixed expenses)
     const incomesByMonth = new Map<string, number>();
