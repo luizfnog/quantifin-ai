@@ -173,7 +173,7 @@ const BulkEditModal = ({ open, onClose, selectedIds }: BulkEditModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="subcategory">Subcategoria</Label>
+            <Label htmlFor="subcategory">Subcategoria (opcional)</Label>
             <Select
               value={selectedSubcategory}
               onValueChange={setSelectedSubcategory}
@@ -185,11 +185,10 @@ const BulkEditModal = ({ open, onClose, selectedIds }: BulkEditModalProps) => {
                     ? "Selecione uma categoria primeiro"
                     : subcategories.length === 0
                     ? "Sem subcategorias disponíveis"
-                    : "Selecione uma subcategoria"
+                    : "Nenhuma subcategoria"
                 } />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhuma</SelectItem>
                 {subcategories.map((subcategory) => (
                   <SelectItem key={subcategory.id} value={subcategory.id}>
                     {subcategory.icon} {subcategory.name}
