@@ -1,4 +1,4 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
@@ -99,6 +99,14 @@ const BudgetTable = ({ budgets, transactions, onUpdate, selectedMonth }: BudgetT
     onUpdate();
   };
 
+  // Calculate totals
+  const totalPlanned = budgets.reduce((sum, budget) => sum + Number(budget.planned_amount), 0);
+  const totalActual = budgets.reduce((sum, budget) => {
+    const actual = calculateActual(budget.category_id, budget.subcategory_id);
+    return sum + actual;
+  }, 0);
+  const totalDifference = totalActual - totalPlanned;
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -173,6 +181,19 @@ const BudgetTable = ({ budgets, transactions, onUpdate, selectedMonth }: BudgetT
             })
           )}
         </TableBody>
+        {budgets.length > 0 && (
+          <TableFooter>
+            <TableRow>
+              <TableCell colSpan={2} className="font-bold">Total</TableCell>
+              <TableCell className="text-right font-bold">R$ {totalPlanned.toFixed(2)}</TableCell>
+              <TableCell className="text-right font-bold">R$ {totalActual.toFixed(2)}</TableCell>
+              <TableCell className={`text-right font-bold ${totalDifference > 0 ? 'text-destructive' : 'text-success'}`}>
+                R$ {Math.abs(totalDifference).toFixed(2)} {totalDifference > 0 ? '↑' : '↓'}
+              </TableCell>
+              <TableCell colSpan={2}></TableCell>
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
 
       <BudgetModal
