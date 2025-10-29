@@ -47,12 +47,23 @@ const BudgetTable = ({ budgets, transactions, onUpdate, selectedMonth }: BudgetT
   };
 
   const getStatusBadge = (actual: number, planned: number) => {
-    if (planned === 0) {
+    // Normalize to cents to avoid float artifacts
+    const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+    const plannedR = round2(planned);
+    const actualR = round2(actual);
+
+    if (plannedR === 0) {
       return <Badge className="bg-muted/20 text-muted-foreground hover:bg-muted/30">Sem Orçamento</Badge>;
     }
-    
-    const percentage = (actual / planned) * 100;
-    
+
+    const varianceR = round2(actualR - plannedR);
+    const percentage = plannedR !== 0 ? (actualR / plannedR) * 100 : 0;
+
+    // Exactly at the limit (R$ 0,00 de diferença)
+    if (varianceR === 0) {
+      return <Badge className="bg-primary/20 text-primary hover:bg-primary/30">No Limite</Badge>;
+    }
+
     if (percentage < 80) {
       return <Badge className="bg-success/20 text-success hover:bg-success/30">Dentro do Orçado</Badge>;
     } else if (percentage < 100) {
