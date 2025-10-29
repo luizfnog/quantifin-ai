@@ -65,8 +65,26 @@ const BudgetStatusAlert = () => {
       let yellowCount = 0;
       let greenCount = 0;
 
+      // Normalize to cents to avoid float artifacts
+      const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+
       categoryMap.forEach(cat => {
-        const percentage = (cat.actual / cat.planned) * 100;
+        const plannedR = round2(cat.planned);
+        const actualR = round2(cat.actual);
+        const varianceR = round2(actualR - plannedR);
+
+        if (plannedR === 0) {
+          // Skip categories with no budget
+          return;
+        }
+
+        // Exactly at the limit (R$ 0,00 de diferença)
+        if (varianceR === 0) {
+          greenCount++;
+          return;
+        }
+
+        const percentage = (actualR / plannedR) * 100;
         if (percentage >= 100) redCount++;
         else if (percentage >= 80) yellowCount++;
         else greenCount++;
