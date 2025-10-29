@@ -111,14 +111,15 @@ const Index = () => {
   });
 
   const kpis = useMemo(() => {
-    const totalExpense = (monthExpenses || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-    const totalIncome = (monthIncomes || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+    const totalExpense = (monthExpenses || []).reduce((sum: number, t: any) => sum + Math.abs(Number(t.amount)), 0);
+    const totalIncome = (monthIncomes || []).reduce((sum: number, t: any) => sum + Math.abs(Number(t.amount)), 0);
     const balance = totalIncome - totalExpense;
     
     // Calculate accumulated historical balance (all time)
     const accumulatedBalance = (allTransactions || []).reduce((sum: number, t: any) => {
-      if (t.type === "income") return sum + Number(t.amount);
-      if (t.type === "expense") return sum - Number(t.amount);
+      const amount = Math.abs(Number(t.amount));
+      if (t.type === "income") return sum + amount;
+      if (t.type === "expense") return sum - amount;
       return sum;
     }, 0);
 
@@ -130,12 +131,12 @@ const Index = () => {
     (allTransactions || []).forEach((t: any) => {
       const monthKey = t.date.substring(0, 7); // YYYY-MM
       if (t.type === "income") {
-        incomesByMonth.set(monthKey, (incomesByMonth.get(monthKey) || 0) + Number(t.amount));
+        incomesByMonth.set(monthKey, (incomesByMonth.get(monthKey) || 0) + Math.abs(Number(t.amount)));
       } else if (t.type === "expense") {
-        totalExpensesByMonth.set(monthKey, (totalExpensesByMonth.get(monthKey) || 0) + Number(t.amount));
+        totalExpensesByMonth.set(monthKey, (totalExpensesByMonth.get(monthKey) || 0) + Math.abs(Number(t.amount)));
         // Only count recurring expenses as fixed
         if (t.is_recurring === true) {
-          fixedExpensesByMonth.set(monthKey, (fixedExpensesByMonth.get(monthKey) || 0) + Number(t.amount));
+          fixedExpensesByMonth.set(monthKey, (fixedExpensesByMonth.get(monthKey) || 0) + Math.abs(Number(t.amount)));
         }
       }
     });
