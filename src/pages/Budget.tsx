@@ -108,20 +108,33 @@ const Budget = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       
-      const { data, error } = await supabase
-        .from("transactions")
-        .select(`
-          *,
-          category:categories!transactions_category_id_fkey(id, name, color, icon),
-          subcategory:categories!transactions_subcategory_id_fkey(id, name, color, icon)
-        `)
-        .eq("user_id", user.id)
-        .eq("type", "expense")
-        .order("date", { ascending: false })
-        .limit(10000);
+      const batchSize = 1000;
+      let from = 0;
+      let to = batchSize - 1;
+      let all: any[] = [];
 
-      if (error) throw error;
-      return data;
+      while (true) {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select(`
+            *,
+            category:categories!transactions_category_id_fkey(id, name, color, icon),
+            subcategory:categories!transactions_subcategory_id_fkey(id, name, color, icon)
+          `)
+          .eq("user_id", user.id)
+          .order("date", { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          all = all.concat(data);
+        }
+        if (!data || data.length < batchSize) break;
+        from += batchSize;
+        to += batchSize;
+      }
+
+      return all;
     },
   });
 
