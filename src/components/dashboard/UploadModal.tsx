@@ -73,18 +73,27 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
       
-      // Fetch existing transactions to check for duplicates
+      // Fetch existing transactions to check for duplicates (by key with counts)
       const { data: existingTransactions } = await supabase
         .from('transactions')
-        .select('date, description, amount')
+        .select('date, description, amount, type')
         .eq('user_id', user.id);
       
-      const existingTransactionsSet = new Set(
-        existingTransactions?.map(t => 
-          `${t.date}|${t.description.toLowerCase().trim()}|${Math.abs(t.amount)}`
-        ) || []
-      );
+      const normalizeDescription = (s: string) =>
+        s.toLowerCase().trim().replace(/\s+/g, ' ');
+      const normalizeAmount = (a: any) => {
+        const n = Number(a);
+        return Math.abs(n).toFixed(2);
+      };
       
+      const makeKey = (date: string, desc: string, type: string, amount: any) =>
+        `${date}|${normalizeDescription(desc)}|${type}|${normalizeAmount(amount)}`;
+      
+      const existingCounts = new Map<string, number>();
+      (existingTransactions || []).forEach((t: any) => {
+        const key = makeKey(t.date, t.description, t.type, t.amount);
+        existingCounts.set(key, (existingCounts.get(key) || 0) + 1);
+      });
       // Fetch all existing categories
       const { data: categories } = await supabase
         .from('categories')
@@ -256,11 +265,26 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
       const errors: string[] = [];
       let duplicatesSkipped = 0;
       
-      for (const t of transactions) {
+      // Build per-key counts for this file
+      const fileCounts = new Map<string, number>();
+      const rowsWithKeys = transactions.map((t) => {
+        const type = t.amount < 0 ? 'expense' : 'income';
+        const key = makeKey(t.date, t.description, type, Math.abs(t.amount));
+        fileCounts.set(key, (fileCounts.get(key) || 0) + 1);
+        return { t, key, type };
+      });
+      
+      // Track number inserted for each key in this batch
+      const insertedForKey = new Map<string, number>();
+      
+      for (const { t, key, type } of rowsWithKeys) {
         try {
-          // Check for duplicates
-          const transactionKey = `${t.date}|${t.description.toLowerCase().trim()}|${Math.abs(t.amount)}`;
-          if (existingTransactionsSet.has(transactionKey)) {
+          const existingCount = existingCounts.get(key) || 0;
+          const fileCount = fileCounts.get(key) || 0;
+          const insertedSoFar = insertedForKey.get(key) || 0;
+
+          // Only insert up to the difference between fileCount and existingCount
+          if (insertedSoFar >= Math.max(0, fileCount - existingCount)) {
             duplicatesSkipped++;
             continue;
           }
@@ -280,11 +304,12 @@ const UploadModal = ({ open, onClose }: UploadModalProps) => {
             date: t.date,
             description: t.description,
             amount: Math.abs(t.amount),
-            type: t.amount < 0 ? 'expense' : 'income',
+            type,
             category_id: category?.id || null,
             subcategory_id: subcategory?.id || null,
             ai_confidence: category ? 100 : 85
           });
+          insertedForKey.set(key, insertedSoFar + 1);
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
           errors.push(`Linha ${t.lineNumber}: ${errorMsg}`);
