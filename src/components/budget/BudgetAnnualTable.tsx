@@ -270,34 +270,38 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
 
   const getVarianceBadge = (variance: number, planned: number, actual: number) => {
     // Show variance even if planned is 0 (14.2 - Show partial data)
-    if (planned === 0 && actual === 0) return null;
-    if (planned === 0) {
+    // Use rounding to cents to avoid float artifacts showing as over budget
+    const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+
+    const plannedR = round2(planned);
+    const actualR = round2(actual);
+    const varianceR = round2(actualR - plannedR);
+
+    if (plannedR === 0 && actualR === 0) return null;
+    if (plannedR === 0) {
       return (
         <Badge variant="outline" className="font-mono">
           Sem Orçamento
         </Badge>
       );
     }
-    
-    const percentOver = (variance / planned) * 100;
-    
-    // Use a small tolerance for floating point comparison (0.01 = 1 cent)
-    const tolerance = 0.01;
-    
-    if (variance > tolerance) {
+
+    const percentOver = plannedR !== 0 ? (varianceR / plannedR) * 100 : 0;
+
+    if (varianceR > 0) {
       return (
         <Badge variant="destructive" className="font-mono">
-          +{variance.toFixed(2)} ({percentOver.toFixed(0)}%)
+          +{varianceR.toFixed(2)} ({percentOver.toFixed(0)}%)
         </Badge>
       );
-    } else if (variance < -tolerance) {
+    } else if (varianceR < 0) {
       return (
         <Badge variant="default" className="bg-green-600 font-mono">
-          {variance.toFixed(2)} ({percentOver.toFixed(0)}%)
+          {varianceR.toFixed(2)} ({percentOver.toFixed(0)}%)
         </Badge>
       );
     }
-    // When variance is within tolerance (essentially 0), show as "Dentro do Orçamento"
+    // When variance rounded to cents is 0, show as "Dentro do Orçamento"
     return <Badge variant="outline" className="font-mono">0.00 (0%)</Badge>;
   };
 
