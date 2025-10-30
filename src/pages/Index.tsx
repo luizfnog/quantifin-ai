@@ -144,6 +144,16 @@ const Index = () => {
     }
   });
 
+  // Accumulated balance via RPC (server-side, avoids client pagination/duplicates)
+  const { data: accumulatedBalanceRpc } = useQuery({
+    queryKey: ["accumulated-balance"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_accumulated_balance');
+      if (error) throw error;
+      return Number(data || 0);
+    }
+  });
+
   const kpis = useMemo(() => {
     const toNumber = (v: any) => Number(v ?? 0);
 
@@ -151,9 +161,8 @@ const Index = () => {
     const totalIncome = (monthIncomes || []).reduce((sum: number, t: any) => sum + toNumber(t.amount), 0);
     const balance = totalIncome - totalExpense;
     
-    // Calculate accumulated historical balance (all time)
-    // Database stores all amounts as POSITIVE, type field determines if income/expense
-    const accumulatedBalance = (allTransactions || []).reduce((sum: number, t: any) => {
+    // Use RPC accumulated balance if available, fallback to calculated
+    const accumulatedBalance = accumulatedBalanceRpc ?? (allTransactions || []).reduce((sum: number, t: any) => {
       const amt = toNumber(t.amount);
       if (t.type === "income") return sum + amt;
       if (t.type === "expense") return sum - amt;
