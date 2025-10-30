@@ -106,48 +106,41 @@ const Index = () => {
         }
       }
 
+      // Remove duplicates by ID (keep first occurrence)
+      const uniqueMap = new Map();
+      allData.forEach((t: any) => {
+        if (!uniqueMap.has(t.id)) {
+          uniqueMap.set(t.id, t);
+        }
+      });
+      const uniqueData = Array.from(uniqueMap.values());
+
       // Debug summary for all transactions
       try {
-        const incomeTx = allData.filter((t: any) => t.type === "income");
-        const expenseTx = allData.filter((t: any) => t.type === "expense");
+        const incomeTx = uniqueData.filter((t: any) => t.type === "income");
+        const expenseTx = uniqueData.filter((t: any) => t.type === "expense");
         const sum = (arr: any[], abs = false) => arr.reduce((s: number, t: any) => s + (abs ? Math.abs(Number(t.amount)) : Number(t.amount)), 0);
         
-        // Check for duplicates
-        const allIds = allData.map((t: any) => t.id);
-        const uniqueIds = new Set(allIds);
-        const hasDuplicates = allIds.length !== uniqueIds.size;
-        
-        // Check user_ids
-        const userIds = new Set(allData.map((t: any) => t.user_id));
-        
         const summary = {
-          total: allData.length,
-          uniqueCount: uniqueIds.size,
-          hasDuplicates,
-          duplicateCount: allIds.length - uniqueIds.size,
-          userIdsFound: userIds.size,
-          currentUserId: user.id,
+          totalFetched: allData.length,
+          uniqueCount: uniqueData.length,
+          duplicatesRemoved: allData.length - uniqueData.length,
           incomeCount: incomeTx.length,
           expenseCount: expenseTx.length,
-          incomeRaw: sum(incomeTx),
-          expenseRaw: sum(expenseTx),
+          incomeSum: sum(incomeTx),
+          expenseSum: sum(expenseTx),
           balance: sum(incomeTx) - sum(expenseTx),
-          minDate: allData[0]?.date,
-          maxDate: allData[allData.length - 1]?.date,
+          minDate: uniqueData[0]?.date,
+          maxDate: uniqueData[uniqueData.length - 1]?.date,
         };
-        console.groupCollapsed('[DEBUG] allTransactions summary');
+        console.groupCollapsed('[DEBUG] allTransactions summary (deduped)');
         console.log(summary);
-        if (hasDuplicates) {
-          const duplicateIds = allIds.filter((id, idx) => allIds.indexOf(id) !== idx);
-          console.warn('Duplicate IDs found:', new Set(duplicateIds));
-          console.table(allData.filter(t => duplicateIds.includes(t.id)).slice(0, 10));
-        }
         console.groupEnd();
       } catch (e) {
         console.warn('[DEBUG] allTransactions summary failed', e);
       }
       
-      return allData;
+      return uniqueData;
     }
   });
 
