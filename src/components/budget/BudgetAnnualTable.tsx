@@ -66,7 +66,8 @@ interface CategoryAggregatedRow {
   categoryName: string;
   categoryColor: string;
   monthlyData: Record<string, MonthlyData>;
-  subcategories: SubcategoryRow[];
+  subcategories: (SubcategoryRow & { isIncome: boolean })[];
+  isIncome: boolean;
 }
 
 const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) => {
@@ -99,7 +100,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
 
   // Process data by subcategory and aggregate by category
   const processData = (): CategoryAggregatedRow[] => {
-    const subcategoryMap = new Map<string, SubcategoryRow>();
+    const subcategoryMap = new Map<string, SubcategoryRow & { isIncome: boolean }>();
 
     // Process budgets
     budgets.forEach(budget => {
@@ -129,6 +130,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
           categoryName: budget.category.name,
           categoryColor: budget.category.color,
           monthlyData: {},
+          isIncome: false, // Will be updated when processing transactions
         });
       }
 
@@ -193,6 +195,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
             categoryName,
             categoryColor,
             monthlyData: {},
+            isIncome: transaction.type === 'income',
           });
         } else {
           return; // Skip if we can't resolve category info at all
@@ -200,6 +203,10 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
       }
 
       const row = subcategoryMap.get(key)!;
+      // Mark as income if any transaction is income
+      if (transaction.type === 'income') {
+        row.isIncome = true;
+      }
       if (!row.monthlyData[monthKey]) {
         row.monthlyData[monthKey] = { planned: 0, actual: 0, variance: 0 };
       }
@@ -232,10 +239,15 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
           categoryColor: subRow.categoryColor,
           monthlyData: {},
           subcategories: [],
+          isIncome: false,
         });
       }
 
       const categoryRow = categoryMap.get(subRow.categoryId)!;
+      // Mark category as income if any subcategory is income
+      if (subRow.isIncome) {
+        categoryRow.isIncome = true;
+      }
       categoryRow.subcategories.push(subRow);
 
       // Aggregate monthly data
@@ -268,7 +280,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
     });
   };
 
-  const getVarianceBadge = (variance: number, planned: number, actual: number) => {
+  const getVarianceBadge = (variance: number, planned: number, actual: number, isIncome: boolean = false) => {
     // Show variance even if planned is 0 (14.2 - Show partial data)
     // Use rounding to cents to avoid float artifacts showing as over budget
     const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
@@ -288,18 +300,36 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
 
     const percentOver = plannedR !== 0 ? (varianceR / plannedR) * 100 : 0;
 
-    if (varianceR > 0) {
-      return (
-        <Badge variant="destructive" className="font-mono">
-          +{varianceR.toFixed(2)} ({percentOver.toFixed(0)}%)
-        </Badge>
-      );
-    } else if (varianceR < 0) {
-      return (
-        <Badge variant="default" className="bg-green-600 font-mono">
-          {varianceR.toFixed(2)} ({percentOver.toFixed(0)}%)
-        </Badge>
-      );
+    // For income, logic is inverted: positive variance (above budget) is good
+    if (isIncome) {
+      if (varianceR > 0) {
+        return (
+          <Badge variant="default" className="bg-green-600 font-mono">
+            +{varianceR.toFixed(2)} ({percentOver.toFixed(0)}%)
+          </Badge>
+        );
+      } else if (varianceR < 0) {
+        return (
+          <Badge variant="destructive" className="font-mono">
+            {varianceR.toFixed(2)} ({percentOver.toFixed(0)}%)
+          </Badge>
+        );
+      }
+    } else {
+      // For expenses, normal logic: positive variance (above budget) is bad
+      if (varianceR > 0) {
+        return (
+          <Badge variant="destructive" className="font-mono">
+            +{varianceR.toFixed(2)} ({percentOver.toFixed(0)}%)
+          </Badge>
+        );
+      } else if (varianceR < 0) {
+        return (
+          <Badge variant="default" className="bg-green-600 font-mono">
+            {varianceR.toFixed(2)} ({percentOver.toFixed(0)}%)
+          </Badge>
+        );
+      }
     }
     // When variance rounded to cents is 0, show as "Dentro do Orçamento"
     return <Badge variant="outline" className="font-mono">0.00 (0%)</Badge>;
@@ -403,7 +433,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                               {data.actual > 0 ? data.actual.toFixed(2) : (data.planned > 0 ? '0.00' : '-')}
                             </TableCell>
                             <TableCell className="text-center">
-                              {(data.planned > 0 || data.actual > 0) ? getVarianceBadge(data.variance, data.planned, data.actual) : '-'}
+                              {(data.planned > 0 || data.actual > 0) ? getVarianceBadge(data.variance, data.planned, data.actual, categoryRow.isIncome) : '-'}
                             </TableCell>
                           </Fragment>
                         );
@@ -431,7 +461,7 @@ const BudgetAnnualTable = ({ budgets, transactions }: BudgetAnnualTableProps) =>
                                 {data.actual > 0 ? data.actual.toFixed(2) : (data.planned > 0 ? '0.00' : '-')}
                               </TableCell>
                               <TableCell className="text-center">
-                                {(data.planned > 0 || data.actual > 0) ? getVarianceBadge(data.variance, data.planned, data.actual) : '-'}
+                                {(data.planned > 0 || data.actual > 0) ? getVarianceBadge(data.variance, data.planned, data.actual, subRow.isIncome) : '-'}
                               </TableCell>
                             </Fragment>
                           );
