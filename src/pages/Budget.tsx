@@ -67,7 +67,6 @@ const Budget = () => {
           subcategory:categories!transactions_subcategory_id_fkey(id, name, color, icon)
         `)
         .eq("user_id", user.id)
-        .eq("type", "expense")
         .gte("date", startDate)
         .lte("date", endDate);
 

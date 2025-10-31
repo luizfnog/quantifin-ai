@@ -20,6 +20,7 @@ interface Budget {
 interface Transaction {
   id: string;
   amount: number;
+  type: string;
   category_id: string | null;
   subcategory_id: string | null;
 }
@@ -46,7 +47,7 @@ const BudgetTable = ({ budgets, transactions, onUpdate, selectedMonth }: BudgetT
     );
   };
 
-  const getStatusBadge = (actual: number, planned: number) => {
+  const getStatusBadge = (actual: number, planned: number, isIncome: boolean) => {
     // Normalize to cents to avoid float artifacts
     const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
     const plannedR = round2(planned);
@@ -64,6 +65,18 @@ const BudgetTable = ({ budgets, transactions, onUpdate, selectedMonth }: BudgetT
       return <Badge className="bg-primary/20 text-primary hover:bg-primary/30">No Limite</Badge>;
     }
 
+    // For income (renda), logic is inverted: above budget is good, below is bad
+    if (isIncome) {
+      if (percentage > 100) {
+        return <Badge className="bg-success/20 text-success hover:bg-success/30">Acima do Orçado</Badge>;
+      } else if (percentage > 80) {
+        return <Badge className="bg-warning/20 text-warning hover:bg-warning/30">Próximo do Limite</Badge>;
+      } else {
+        return <Badge className="bg-destructive/20 text-destructive hover:bg-destructive/30">Abaixo do Orçado</Badge>;
+      }
+    }
+
+    // For expenses (despesas), normal logic: below budget is good, above is bad
     if (percentage < 80) {
       return <Badge className="bg-success/20 text-success hover:bg-success/30">Dentro do Orçado</Badge>;
     } else if (percentage < 100) {
@@ -134,6 +147,13 @@ const BudgetTable = ({ budgets, transactions, onUpdate, selectedMonth }: BudgetT
               const planned = Number(budget.planned_amount);
               const difference = actual - planned;
               
+              // Check if this is income category by looking at the transactions
+              const isIncome = transactions.some(t => 
+                t.category_id === budget.category_id && 
+                (budget.subcategory_id ? t.subcategory_id === budget.subcategory_id : true) &&
+                t.type === 'income'
+              );
+              
               return (
                 <TableRow key={budget.id}>
                   <TableCell className="font-medium">
@@ -152,11 +172,15 @@ const BudgetTable = ({ budgets, transactions, onUpdate, selectedMonth }: BudgetT
                   </TableCell>
                   <TableCell className="text-right">R$ {planned.toFixed(2)}</TableCell>
                   <TableCell className="text-right">R$ {actual.toFixed(2)}</TableCell>
-                  <TableCell className={`text-right font-semibold ${difference > 0 ? 'text-destructive' : 'text-success'}`}>
+                  <TableCell className={`text-right font-semibold ${
+                    isIncome 
+                      ? (difference > 0 ? 'text-success' : 'text-destructive')
+                      : (difference > 0 ? 'text-destructive' : 'text-success')
+                  }`}>
                     R$ {Math.abs(difference).toFixed(2)} {difference > 0 ? '↑' : '↓'}
                   </TableCell>
                   <TableCell className="text-center">
-                    {getStatusBadge(actual, planned)}
+                    {getStatusBadge(actual, planned, isIncome)}
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex gap-2 justify-center">
